@@ -34,12 +34,7 @@ char  pend;                // IsPending()
 char  schedule;            // SysTick_Handler()
 int   tick;	              // delayTimeOS(), lowPowerModeOS()
 int   ready;               // lowPowerModeOS()
-char  bit;	                // checkReadyTableSetBitOS()
-unsigned int priorityBit; // checkReadyTableSetBitOS()
 		
-extern void sendByte(char);
-extern void print32bits(unsigned  int );
-
 
 void initializeSysTickOS(unsigned int clock)
 {
@@ -310,7 +305,7 @@ int findOptimalPaddingOS(void)
 	  for ( i=0; i< TASKSIZE; i++ )
 	  {
         k = 0;
-        while( (TaskOS[i].pack[k] == 0xf000000f) && (k < PADDING) )
+        while( TaskOS[i].pack[k] == 0xf000000f )
         {
               k++;
         }
@@ -327,27 +322,6 @@ int findOptimalPaddingOS(void)
       return maximum;
 }
 
-
-
-char IsStartPending(void)
-{
-	  int  i;  
-
-		pend = 0;
-	
-		for( i = 0; i < TASKSIZE; i++  )   
-    {
-		 	  if(  SemNumberTaskOS[i] != (char)-1 )
-				{
-            pend = 1;
-					  break;
-				}				
-		 }
-
-     return pend;		 
-}
-
-
              // posting task does not know whick task pend the semNumber
              // multiTask pend the same SemNumber is permissible
 void postSemOS(char semNumber)
@@ -356,31 +330,27 @@ void postSemOS(char semNumber)
 
 	  if (  semNumber != (char)-1 )
 		{
-	
-	     DISABLE_INTERRUPT;	
-				 PriorityOwnEventOS[CurrentPriorityOS] = 0;  // used in executeHighestPriorityTaskOS()			
-	       SemNumberTaskOS[CurrentPriorityOS] = (char)-1;   // does not pend Sem
-	     ENABLE_INTERRUPT;	
-			
-			   if(  IsStartPending() )
-				 {			
-	 	        for ( i=0; i < TASKSIZE; i++ )
-            {
-							  if(   SemNumberTaskOS[i] == semNumber  )  // resume all task pendding this number
-							  {	
+        for ( i=0; i < TASKSIZE; i++ )
+        {
+				    if(  i == CurrentPriorityOS )
+				    {
+							 DISABLE_INTERRUPT;	
+				        PriorityOwnEventOS[CurrentPriorityOS] = 0;  // used in executeHighestPriorityTaskOS()			
+	              SemNumberTaskOS[CurrentPriorityOS] = (char)-1;   // does not pend Sem
+	             ENABLE_INTERRUPT;		 
+						}
+						else if(   SemNumberTaskOS[i] == semNumber  )  // resume all task pendding this number
+						{	
 	                  DISABLE_INTERRUPT;									 
 	                    SemNumberTaskOS[i] = (char)-1; 		// delete sem number
 			                PriorityOwnEventOS[i] = 1;
 								      WaitTickOS[i] = 0;
 		                  setReadyTableOS(i);  //  the pending task is ready, regardless the waitTick value
 								 	  ENABLE_INTERRUPT;	
-						    }
-								
-            } // for
-						
-				 } // if(  IsStartPending() )
-					
+						}	
+        } // for
 	  } //   if (  semNumber >= 0 )
+		
 		if( interruptNumberOS() == 0 )
 		{			
 	      executeHighestPriorityTaskOS();	// successful
@@ -489,32 +459,9 @@ void delayTimeOS( int hour, int minute, int second, int  mS)
 } 
 
 
-      // return 1 or 0 only
-char checkReadyTableSetBitOS(int priority)
+unsigned int queryReadyTableOS(void)
 {
-    priorityBit = 0x0;
-	
-	  priorityBit |=  ( 1<< priority );
-	  priorityBit &= ReadyTableOS;
-	
-	  bit =1;
-	  if ( priorityBit == 0x0 )    
-	  {
-		    bit = 0;
-	  }
-	 
-	  return bit;
-}
-
-
-void queryReadyTableOS(char* result)
-{
-	  int i;
-	
-	  for (i=0; i<TASKSIZE; i++)
-	  {
-		    result[i] = checkReadyTableSetBitOS(i);
-	  }
+    return  ReadyTableOS;
 }
 
 

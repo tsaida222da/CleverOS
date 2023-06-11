@@ -28,7 +28,7 @@
 
             // application function
 char startOS(void (*[])(void), int, int, void (*)(void), void (*)(void));
-void queryReadyTableOS(char*);
+unsigned int queryReadyTableOS(void);
 int  findOptimalPaddingOS(void);
 void delayTickOS(int);
 void delayTimeOS(int, int, int, int);

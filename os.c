@@ -766,15 +766,11 @@ int pendCodeOS(int *array,char eventType)
 
 
 
-void queryReadyTableOS(char* result)
+unsigned int* queryReadyTableOS(void)
 {
-	  int i;
-	
-	  for (i=0; i<TASKSIZE; i++)
-	  {
-		    result[i] = checkSetBitOS(ReadyTableOS, i);
-	  }
+    return  &ReadyTableOS[0];
 }
+
 
 
          //  ISR calls it at the end for preemptive process.

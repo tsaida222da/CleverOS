@@ -77,72 +77,72 @@
 /*                    API                                        */
 /*****************************************************************/
 
-       // Kernel
-char         startOS(void (*[])(void), int, int, void (*)(int), void (*)(void), void (*)(void));
-void         queryReadyTableOS(char*);
-void         endISRpreemptOS(void);
-int          nonBlockingCallbackOS(int (*)(void));
-char         errorPendSizeOS(void);
-       // Stack
-int          ramToPaddingOS(int, int);
-int          paddingToRamOS(int, int);						
-int          autoPackItemsOS(void);
-int          minimumStackOS(void);
-int          autoMinimumStackOS(void);
-int*         minPackSizeOS(void);
-int          queryResidueStackOS(void);
-char         queryDangerTaskOS(void);
-void         checkStackSafetyOS(int, int);
-char         querySafeLevelOS(void);
-       // Delay
-void         delayTickOS(int);
-void         delayTimeOS(int, int, int, int);
-void         delayUntilEqualOS(int*, int*);
-void         delayUntilTrueOS(int*);
-      // Semaphore
-void         postSemOS(int);
-int          pendSemOS(int*, int);
-      // Mail Message
-void         postMailOS(int, void*);
-void*        readMailOS(int, char);
-void*        pendMailOS(int*, int*, char, int);
-      // Flag
-void         postFlagOS(int, unsigned int, char);
-int          pendFlagOS(int*, unsigned int, char, int);
-char         checkPublicFlagBitOS(int, char);
-unsigned int queryPublicFlagOS(int);
-      // Mutex
-void         postMutexOS(void);
-int          pendMutexOS(int*, int);
-      // Memory Management
-void*        getMemoryOS(int, int);
-void*        getMemoryWithPutOS(int, int);
-void*        margeAddressOS(void*);
-void*        dangerAddressOS(void*, int*);
-void         putMemoryOS(int); 
-void*        mallocOS(int);
-void         freeOS(void*);
-int          maxFreeMemoryOS(void);
-int          minFreeMemoryOS(void);
-int          queryFreeBulkNoOS(char*);
-int          leakMemoryNoOS(void);
-int          lackMemoryNoOS(void);
-int*         leakMemoryNoAllOS(void);
-int*         lackMemoryNoAllOS(void);
-      // Queue
-int          postQOS(int, void*);
-void*        readQOS(int, int*);
-void*        pendQOS(int*, char, int*, int*, int);
-char         qSleepOS(void*);
-int          qReadyNumberOS(void*);
-int          queryRemainItemsOS(int);
-void         qRxIntFloatOS(int, void*);
-void         qTxIntFloatOS(int, void*, int, char);
-void         qTxRealtimeOS(int, void*);
-void*        qRxRealtimePendOS(int);
-      // Task Loading
-int*         relativeTaskLoadOS(void);
-int          idleTaskLoadOS(void);
+           // Kernel
+char          startOS(void (*[])(void), int, int, void (*)(int), void (*)(void), void (*)(void));
+unsigned int* queryReadyTableOS(void);
+void          endISRpreemptOS(void);
+int           nonBlockingCallbackOS(int (*)(void));
+char          errorPendSizeOS(void);
+          // Stack
+int           ramToPaddingOS(int, int);
+int           paddingToRamOS(int, int);						
+int           autoPackItemsOS(void);
+int           minimumStackOS(void);
+int           autoMinimumStackOS(void);
+int*          minPackSizeOS(void);
+int           queryResidueStackOS(void);
+char          queryDangerTaskOS(void);
+void          checkStackSafetyOS(int, int);
+char          querySafeLevelOS(void);
+           // Delay
+void          delayTickOS(int);
+void          delayTimeOS(int, int, int, int);
+void          delayUntilEqualOS(int*, int*);
+void          delayUntilTrueOS(int*);
+           // Semaphore
+void          postSemOS(int);
+int           pendSemOS(int*, int);
+           // Mail Message
+void          postMailOS(int, void*);
+void*         readMailOS(int, char);
+void*         pendMailOS(int*, int*, char, int);
+           // Flag
+void          postFlagOS(int, unsigned int, char);
+int           pendFlagOS(int*, unsigned int, char, int);
+char          checkPublicFlagBitOS(int, char);
+unsigned int  queryPublicFlagOS(int);
+           // Mutex
+void          postMutexOS(void);
+int           pendMutexOS(int*, int);
+           // Memory Management
+void*         getMemoryOS(int, int);
+void*         getMemoryWithPutOS(int, int);
+void*         margeAddressOS(void*);
+void*         dangerAddressOS(void*, int*);
+void          putMemoryOS(int); 
+void*         mallocOS(int);
+void          freeOS(void*);
+int           maxFreeMemoryOS(void);
+int           minFreeMemoryOS(void);
+int           queryFreeBulkNoOS(char*);
+int           leakMemoryNoOS(void);
+int           lackMemoryNoOS(void);
+int*          leakMemoryNoAllOS(void);
+int*          lackMemoryNoAllOS(void);
+           // Queue
+int           postQOS(int, void*);
+void*         readQOS(int, int*);
+void*         pendQOS(int*, char, int*, int*, int);
+char          qSleepOS(void*);
+int           qReadyNumberOS(void*);
+int           queryRemainItemsOS(int);
+void          qRxIntFloatOS(int, void*);
+void          qTxIntFloatOS(int, void*, int, char);
+void          qTxRealtimeOS(int, void*);
+void*         qRxRealtimePendOS(int);
+           // Task Loading
+int*          relativeTaskLoadOS(void);
+int           idleTaskLoadOS(void);
 	
 	
 

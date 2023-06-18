@@ -1,6 +1,8 @@
 #include <LPC11xx.h>
 
 #define  ASSERTOS(x) if( !(x) ){ __ASM{cpsid i}; for(;;); }
+#define  DISABLE_INTERRUPT  __asm( "cpsid i		\n" );
+#define  ENABLE_INTERRUPT   __asm( "cpsie i		\n" );
 
 #define  OSCLOCK_1S      SystemCoreClock  // defined in system_LPC11xx.c
 #define  OSCLOCK_500mS   SystemCoreClock/2

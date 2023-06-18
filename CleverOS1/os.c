@@ -2,9 +2,6 @@
 #include "SIZE.h"
 #include "OS.h"
 
-#define  DISABLE_INTERRUPT  __asm( "cpsid i		\n" );
-#define  ENABLE_INTERRUPT   __asm( "cpsie i		\n" );
-
 typedef struct 
 {
     unsigned int  sp;  // sp must be the first element

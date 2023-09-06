@@ -19,7 +19,7 @@ int           WaitTickOS[TASKSIZE];
 unsigned int  ReadyTableOS;  // bit 1 is ready, priority is bit index
 int           CurrentPriorityOS;   // priority <= TASKSIZE - 1, priority begin from 0, priority >= 0
 int           TickPerSecondOS;
-
+char          powerOnOS = 1;
 char          SemNumberTaskOS[TASKSIZE];  // initialized in startOS(), used in pendSemOS(), array index is priority, array value is task's pendding SemNumber(0 ~ 255), one task pends one SEM number.
 char          PriorityOwnEventOS[TASKSIZE];     // array index is priority, 0 <= priority <=  TASKSIZE - 1
 
@@ -184,14 +184,16 @@ void executeHighestPriorityTaskOS(void)
 							
 				if( CurrentPriorityOS != (int)TASKSIZE ) 
 			  {
-				     if( (highestPriority == (int)TASKSIZE) && (stopClockOS != NULL) ) 
+				     if( (highestPriority == (int)TASKSIZE) && (stopClockOS != NULL) && (powerOnOS) ) 
 			       {
-                  stopClockOS();				 
+                  stopClockOS();	
+                  powerOnOS = 0;							 
 						 }		 
 				}
-				else if( (highestPriority != (int)TASKSIZE) && (restartClockOS != NULL) ) 
+				else if( (highestPriority != (int)TASKSIZE) && (restartClockOS != NULL) && (!powerOnOS)) 
 			  {
-            restartClockOS();				 
+            restartClockOS();		
+            powerOnOS = 1;					
 				}
 				 
         if(  highestPriority != CurrentPriorityOS   )

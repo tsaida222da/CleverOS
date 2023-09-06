@@ -62,6 +62,7 @@ int           ScheduleISROS = 0;
 unsigned int  ReadyTableOS[TABLELENGTH];  // bit index is priority
 unsigned int  CountTaskOS[TASKSIZE]; 
 char          ErrorPendSizeOS = 0;
+char          powerOnOS = 1;
 
 unsigned int* TaskSpPointerOS[TASKSIZE+1];  // include idleTaskOS()
 unsigned int  TaskStackOS[STACKRAMBYTES/4];  // include all tasks and idleTaskOS()
@@ -370,14 +371,16 @@ void executeHighestPriorityTaskOS(void)  // do not need waitTick
 	                CountTaskOS[CurrentPriorityOS] = COUNTSTARTOS;
              }	
 						 
-             if ( (highestPriority == (int)TASKSIZE) && (stopClockOS != NULL) )
+             if ( (highestPriority == (int)TASKSIZE) && (stopClockOS != NULL) && (powerOnOS) )
              {
                  stopClockOS();
+							   powerOnOS = 0;
              }							 
 				}
-				else if ( (highestPriority != (int)TASKSIZE) && (restartClockOS != NULL)  )
+				else if ( (highestPriority != (int)TASKSIZE) && (restartClockOS != NULL) && (!powerOnOS) )
 				{
 					  restartClockOS();
+					  powerOnOS = 1;
 				}
 						      	    // executable condition
         if( highestPriority != CurrentPriorityOS )

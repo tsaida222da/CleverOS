@@ -80,8 +80,9 @@
            // Kernel
 char          startOS(void (*[])(void), int, int, void (*)(int), void (*)(void), void (*)(void));
 unsigned int* queryReadyTableOS(void);
-void          endISRpreemptOS(void);
 int           nonBlockingCallbackOS(int (*)(void));
+void          endISRpreemptOS(void);
+void          deleteSelfOS(void);
 char          errorPendSizeOS(void);
           // Stack
 int           ramToPaddingOS(int, int);

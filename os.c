@@ -120,6 +120,7 @@ void  checkSafeLevelOS(void);         // called by executeHighestPriorityTaskOS(
 char  checkDelayUntilOS(void);        // called by SysTick_Handler()
 void  qTxOS(void);                    // called by SysTick_Handler()
 void  qRxOS(void);                    // called by SysTick_Handler()
+void  delayTickOS(int);               // called by deleteSelfOS()
 
 #if   defined  CM0 
 
@@ -862,6 +863,12 @@ char errorPendSizeOS(void)
 }
 
 
+void deleteSelfOS(void)
+{
+	  delayTickOS( -1 );
+}
+
+
 /*****************************************************************/
 /*                          Stack                                */
 /*****************************************************************/
@@ -928,6 +935,21 @@ int autoMinimumStackOS(void)
     optimalRam = ( optimalPack + CPUREGISTER*(TASKSIZE+1) ) * WORDSIZE;
 			
     return  optimalRam;
+}
+
+
+int autoPackItemsOS(void)
+{
+	  return AutoPackItemsOS;
+}
+
+
+
+int* minPackSizeOS(void)
+{
+	  minimumStackOS();
+		
+	  return PackSizeOS;
 }
 
 
@@ -1034,21 +1056,6 @@ void checkSafeLevelOS(void)
 }
 
 
-int autoPackItemsOS(void)
-{
-	  return AutoPackItemsOS;
-}
-
-
-
-int* minPackSizeOS(void)
-{
-	  minimumStackOS();
-		
-	  return PackSizeOS;
-}
-
-
 int queryResidueStackOS(void)
 {
 	  currentResidueOS();
@@ -1077,17 +1084,10 @@ void delayTickOS(int tick)
 {
 		if( interruptNumberOS() == 0 )
 		{	
-       if ( tick > 0 )
-       {
-           pauseTaskOS(tick);		 
-       }
-		
-       executeHighestPriorityTaskOS();	
+        pauseTaskOS(tick);		 
+        executeHighestPriorityTaskOS();	
 		}
-
 } 
-
-
 
 void delayTimeOS( int hour, int minute, int second, int  mS)
 {

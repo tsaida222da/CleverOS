@@ -13,10 +13,11 @@ void task0(void)
 		
 	  while(1)
     { 
-				 queryReadyTableOS(carray);
+				 queryReadyTableOS();
 			   endISRpreemptOS();
 			   nonBlockingCallbackOS(NULL);
 			   errorPendSizeOS();
+			   deleteSelfOS();
 
 			   ramToPaddingOS(2000, 2);
 			   paddingToRamOS(20, 2);

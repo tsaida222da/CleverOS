@@ -32,6 +32,7 @@
 char startOS(void (*[])(void), int, int, void (*)(void), void (*)(void));
 unsigned int queryReadyTableOS(void);
 int  findOptimalPaddingOS(void);
+void deleteSelfOS(void);
 void delayTickOS(int);
 void delayTimeOS(int, int, int, int);
 void postSemOS(char);

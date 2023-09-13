@@ -292,34 +292,92 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 	 
  }//  st artOS
 
-  
 
-int findOptimalPaddingOS(void) 
+void SysTick_Handler(void)
 {
-	  int i;
-    int k;
-	
-	  maximum = -1;
-	
-	  for ( i=0; i< TASKSIZE; i++ )
-	  {
-        k = 0;
-        while( TaskOS[i].pack[k] == 0xf000000f )
-        {
-              k++;
-        }
+     int  i;
 
-        pack = (int)PADDING - k;                                
-
-		    if (  pack > maximum )
-		    {
-			      maximum = pack;       
-		    }		
-
-	    } // for
+		 schedule=0; 
+		            // one Tick Passed and set ready
+     for( i=0; i<TASKSIZE; i++ )   // i is task's priority
+     {
+				  if ( WaitTickOS[i] >= 1 )		// waitTick < 0 can not be ready(infinite timeout), only acquiring event can let the  pendding task ready   
+          {
+							 DISABLE_INTERRUPT;
+				          WaitTickOS[i]--;	
+							 ENABLE_INTERRUPT;
+          } 
+						 
+				  if ( WaitTickOS[i] == 0  )	
+          {	
+					        setReadyTableOS(i);							 
+                DISABLE_INTERRUPT;							 
+							    schedule = 1;
+							  ENABLE_INTERRUPT;
+          } 						 
+								
+     } // for
 				
-      return maximum;
+           // system can schedule tasks due to System Tick
+			if ( schedule )
+			{
+  	       executeHighestPriorityTaskOS();		
+			}
 }
+
+
+void pauseTaskOS(int timeout)
+{	
+     DISABLE_INTERRUPT;				
+	    PriorityOwnEventOS[CurrentPriorityOS] = 0;	   // current task does not own event
+	    WaitTickOS[CurrentPriorityOS] = timeout;
+	 	  clearReadyTableOS(CurrentPriorityOS );
+     ENABLE_INTERRUPT;		
+}
+
+
+void delayTickOS(int tick)
+{
+		if( interruptNumberOS() == 0 )
+		{	
+        pauseTaskOS(tick);		 
+        executeHighestPriorityTaskOS();	
+		}
+} 
+
+
+void deleteSelfOS(void)
+{
+	  delayTickOS( -1 );
+}
+
+void delayTimeOS( int hour, int minute, int second, int  mS)
+{
+		if( interruptNumberOS() == 0 )
+		{	
+	     if ( ( hour >= 0 ) && (  minute >= 0 ) && ( second >= 0 ) && ( mS >= 0 ) )
+		   {
+	         tick = TickPerSecondOS * ( hour * 3600 + minute * 60 + second );
+	         tick += TickPerSecondOS * mS / 1000; 
+			 
+			     if ( (TickPerSecondOS * mS % 1000) > 500 )
+				   {
+					    tick++; 
+				   }	
+				 
+			     if ( tick < 1 )
+				   {
+					    tick = 1; 
+				   }
+					 
+	         pauseTaskOS(tick);
+		   }
+		 
+       executeHighestPriorityTaskOS();	 
+	 }
+		 
+} 
+
 
              // posting task does not know whick task pend the semNumber
              // multiTask pend the same SemNumber is permissible
@@ -356,18 +414,6 @@ void postSemOS(char semNumber)
 		}
 }
 
-
-
-void pauseTaskOS(int timeout)
-{	
-     DISABLE_INTERRUPT;				
-	    PriorityOwnEventOS[CurrentPriorityOS] = 0;	   // current task does not own event
-	    WaitTickOS[CurrentPriorityOS] = timeout;
-	 	  clearReadyTableOS(CurrentPriorityOS );
-     ENABLE_INTERRUPT;		
-}
-
-
                     //  timeout is tick number 
 void pendSemOS(char semNumber, int timeout)
 { 
@@ -384,78 +430,32 @@ void pendSemOS(char semNumber, int timeout)
 }
 
 
-
-void SysTick_Handler(void)
+int findOptimalPaddingOS(void) 
 {
-     int  i;
+	  int i;
+    int k;
+	
+	  maximum = -1;
+	
+	  for ( i=0; i< TASKSIZE; i++ )
+	  {
+        k = 0;
+        while( TaskOS[i].pack[k] == 0xf000000f )
+        {
+              k++;
+        }
 
-		 schedule=0; 
-		            // one Tick Passed and set ready
-     for( i=0; i<TASKSIZE; i++ )   // i is task's priority
-     {
-				  if ( WaitTickOS[i] >= 1 )		// waitTick < 0 can not be ready(infinite timeout), only acquiring event can let the  pendding task ready   
-          {
-							 DISABLE_INTERRUPT;
-				          WaitTickOS[i]--;	
-							 ENABLE_INTERRUPT;
-          } 
-						 
-				  if ( WaitTickOS[i] == 0  )	
-          {	
-					        setReadyTableOS(i);							 
-                DISABLE_INTERRUPT;							 
-							    schedule = 1;
-							  ENABLE_INTERRUPT;
-          } 						 
-								
-     } // for
+        pack = (int)PADDING - k;                                
+
+		    if (  pack > maximum )
+		    {
+			      maximum = pack;       
+		    }		
+
+	    } // for
 				
-           // system can schedule tasks due to System Tick
-			if ( schedule )
-			{
-  	       executeHighestPriorityTaskOS();		
-			}
+      return maximum;
 }
-
-
-
-void delayTickOS(int tick)
-{
-		if( interruptNumberOS() == 0 )
-		{	
-        pauseTaskOS(tick);		 
-        executeHighestPriorityTaskOS();	
-		}
-} 
-
-
-
-void delayTimeOS( int hour, int minute, int second, int  mS)
-{
-		if( interruptNumberOS() == 0 )
-		{	
-	     if ( ( hour >= 0 ) && (  minute >= 0 ) && ( second >= 0 ) && ( mS >= 0 ) )
-		   {
-	         tick = TickPerSecondOS * ( hour * 3600 + minute * 60 + second );
-	         tick += TickPerSecondOS * mS / 1000; 
-			 
-			     if ( (TickPerSecondOS * mS % 1000) > 500 )
-				   {
-					    tick++; 
-				   }	
-				 
-			     if ( tick < 1 )
-				   {
-					    tick = 1; 
-				   }
-					 
-	         pauseTaskOS(tick);
-		   }
-		 
-       executeHighestPriorityTaskOS();	 
-	 }
-		 
-} 
 
 
 unsigned int queryReadyTableOS(void)

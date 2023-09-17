@@ -1582,7 +1582,7 @@ int pendMutexOS(int *array, int timeout)
 				     EventNumberTaskOS[index].eventType = MUTEX;					
 		       ENABLE_INTERRUPT;	
 			 
-			       if( (number < MUTEXSIZE) && (MutexOwnerOS[number] < 0) )
+			       if( (number >= 0) && (number < MUTEXSIZE) && (MutexOwnerOS[number] < 0) )
 				     {
 							   setTableOS(PriorityOwnEventOS, CurrentPriorityOS);
 		           DISABLE_INTERRUPT;											

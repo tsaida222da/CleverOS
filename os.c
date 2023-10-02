@@ -2128,7 +2128,7 @@ void* dangerAddressOS(void* relyAddress, int *dangerBytes)
 }
 
 
-int minMaxFreeMemoryOS(int minMax)
+int minMaxFreeMemoryOS(char minMax)
 {
 		int  i;
 		int  continueByte;
@@ -2709,17 +2709,17 @@ int* relativeTaskLoadOS(void)
 {
     int   i;	
 	  int   rounding;
-    long double   totalClock = 0.0;
+    long double   totalCount = 0.0;
 	
 	  for (i=0; i< TASKSIZE; i++)  // exclude idleTask()
 		{
-				totalClock += (long double)CountTaskOS[i];
+				totalCount += (long double)CountTaskOS[i];
 		}
 
 	  for (i=0; i< TASKSIZE; i++)
 		{
-			 TaskLoadOS[i] = (int)((long double)CountTaskOS[i] / totalClock * 100);
-			 rounding = (int)((long double)CountTaskOS[i] / totalClock * 1000) % 10;		
+			 TaskLoadOS[i] = (int)((long double)CountTaskOS[i] / totalCount * 100);
+			 rounding = (int)((long double)CountTaskOS[i] / totalCount * 1000) % 10;		
 			 if ( rounding >= 5)
 			 {
 				   TaskLoadOS[i]++;

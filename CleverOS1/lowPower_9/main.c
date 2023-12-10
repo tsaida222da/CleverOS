@@ -87,35 +87,28 @@ void print32bits(unsigned  int  y)
 
 void stopPeripheralClock(void)
 {
-		LPC_SYSCON->SYSAHBCLKCTRL |=  (1<<9); // enable LPC_TMR32B0 clock
-		LPC_TMR32B0->TCR = (1<<1);            // reset low-power counter
-		LPC_TMR32B0->TCR = (1<<0);            // enable low-power counter
-
-	  LPC_SYSCON->PDRUNCFG  |= 1 << 5;      // Power-down System Osc 
-		SystickControlRegisterOS = ~(1<<0) & ~(1<<1) & ~(1<<2);  // disable Systen Tick timer	
-
-	// stop peripheral clock
-	
+ // stop peripheral clock
     sendByte('1');
-	
 	  __wfi();
 }
 
 void lowPowerTimer(void)
 {
-		 LPC_SYSCON->SYSAHBCLKCTRL |=  (1<<9); // enable LPC_TMR32B0 clock
-	
-		 LPC_TMR32B0->PR = DIVISOROS - 1;
+		 LPC_SYSCON->PDRUNCFG  |= 1 << 5;      // Power-down System Osc 
+		 SystickControlRegisterOS = ~(1<<0) & ~(1<<1) & ~(1<<2);  // disable Systen Tick timer	
 
+		 LPC_SYSCON->SYSAHBCLKCTRL |=  (1<<9); // enable LPC_TMR32B0 clock
+		 LPC_TMR32B0->PR = DIVISOROS - 1;
 		 LPC_TMR32B0->MR1 = matchRegisterOS();
-	
 		 LPC_TMR32B0->MCR = (1<<3) | (1<<4);   // interrupt and reset by MR1
+		 LPC_TMR32B0->TCR = (1<<1);            // reset low-power counter
+		 LPC_TMR32B0->TCR = (1<<0);            // enable low-power counter
 	
 	   stopPeripheralClock();
 }
 
 
-void restartPeripheralClock(void)
+void resumePeripheralClock(void)
 {
 		LPC_TMR32B0->TCR &= ~(1<<0);           // disable low-power counter
 		LPC_SYSCON->SYSAHBCLKCTRL &= ~(1<<9);  // disable LPC_TMR32B0 clock				
@@ -125,8 +118,7 @@ void restartPeripheralClock(void)
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable Systen Tick timer
 
-	 // restart peripheral clock
-	
+ // resume peripheral clock
     sendByte('2');
 }
 
@@ -134,7 +126,7 @@ void restartPeripheralClock(void)
 void TIMER32_0_IRQHandler(void)  // simulate low-power timer
 {
 	  LPC_TMR32B0->IR = (1<<1);   // clear interrupt flag
-		restartPeripheralClock();
+		resumePeripheralClock();
 		schedulerOS();
 }
 

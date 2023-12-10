@@ -103,12 +103,11 @@ void stopPeripheralClock(void)
 
 void lowPowerTimer(void)
 {
-	   extern unsigned int  MatchRegisterOS;
-	
 		 LPC_SYSCON->SYSAHBCLKCTRL |=  (1<<9); // enable LPC_TMR32B0 clock
+	
 		 LPC_TMR32B0->PR = DIVISOROS - 1;
 
-		 LPC_TMR32B0->MR1 = MatchRegisterOS * (CLOCKOS / (int)DIVISOROS);
+		 LPC_TMR32B0->MR1 = matchRegisterOS();
 	
 		 LPC_TMR32B0->MCR = (1<<3) | (1<<4);   // interrupt and reset by MR1
 	
@@ -145,7 +144,7 @@ void task0(void)
 	  while(1)
     { 
         sendByte('A');
-			  print32bits( tickMatchOS(DIVISOROS - 1) );
+			  print32bits( tickDistortionOS(DIVISOROS - 1) );
 			  delayTickOS( 37 );		
     } 
 } 

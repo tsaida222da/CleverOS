@@ -15,7 +15,7 @@ stackOS       *NextTaskOS;
 stackOS       TaskOS[TASKSIZE+1];  // including idleTaskOS()
 int           WaitTickOS[TASKSIZE];
 unsigned int  ReadyTableOS;  // bit value 1 is ready state, bit index is task priority value
-unsigned int  MatchRegisterOS;
+unsigned int  MinDelayTickOS;
 int           CurrentPriorityOS;   // priority value <= TASKSIZE - 1, priority value begin from 0
 int           TickPerSecondOS;
 char          PowerOnOS = 1;
@@ -140,11 +140,10 @@ __asm void setCONTROLOS(unsigned int usePSP)
 
 
 
-void matchRegisterOS(void)
+void minDelayTickOS(void)
 {
 	  int  i;
 		unsigned int  min = 0xffffffff;
-	  unsigned int  MAX = 0xffffffff / (int)CLOCKOS * DIVISOROS   ;
 
     for (i=0; i<TASKSIZE; i++)
 		{
@@ -166,19 +165,19 @@ void matchRegisterOS(void)
 				}
 		}
 		
-		if ( min > MAX )  // overflow
+		if ( min > MAXTICK )  // overflow
 		{
-			 min = MAX;
+			 min = MAXTICK;
 		}
 
 	 DISABLE_INTERRUPT;		
-		MatchRegisterOS = min;
+		MinDelayTickOS = min;
 	 ENABLE_INTERRUPT;
 }
 
 
           // low power mode
-int tickMatchOS(int prescale)
+int tickDistortionOS(int prescale)
 {
 	  int remainder = -1;
 	  float a, b;
@@ -193,6 +192,12 @@ int tickMatchOS(int prescale)
 	  }
 	
 	  return remainder;
+}
+
+
+unsigned int matchRegisterOS(void)
+{
+	  return  MinDelayTickOS * (CLOCKOS / (int)DIVISOROS);
 }
 
 
@@ -233,7 +238,7 @@ void schedulerOS(void)
 			  {
 				     if( (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS ) 
 			       {
-                  matchRegisterOS();
+                  minDelayTickOS();
                   PowerOnOS = 0;							 
 						 }		 
 				}

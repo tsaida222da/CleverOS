@@ -12,14 +12,13 @@
 #define  OSCLOCK_10mS    SystemCoreClock/100
 #define  OSCLOCK_1mS     SystemCoreClock/1000
 #define  OSCLOCK_100uS   SystemCoreClock/10000
-
-#define  OSCLOCK_10K     10000
-#define  OSCLOCK_100K    100000
 #define  OSCLOCK_1M      1000000
 
 #define  CLOCKOS         OSCLOCK_100mS  // number of CPU clock per OS tick
 
+                  // low power mode
 #define  DIVISOROS        100000
+#define	 MAXTICK         0xffffffff /(int)CLOCKOS * DIVISOROS
 
 #define  NULL             0x0
 #define  INFINITEOS      -1
@@ -40,4 +39,5 @@ void delayTimeOS(int, int, int, int);
 void postSemOS(char);
 void pendSemOS(char, int);
 void schedulerOS(void);
-int  tickMatchOS(int);
+int  tickDistortionOS(int);
+unsigned int matchRegisterOS(void);

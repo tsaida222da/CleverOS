@@ -27,14 +27,13 @@
 #define  OSCLOCK_200uS    CPUclockOS/5000
 #define  OSCLOCK_100uS    CPUclockOS/10000
 #define  OSCLOCK_1M       1000000
-#define  OSCLOCK_100K     100000
-#define  OSCLOCK_10K      10000
 
            // select OS tick
 #define  CLOCKOS          OSCLOCK_100mS
 
-           // low power mode divisor
+           // low power mode
 #define  DIVISOROS        100000
+#define	 MAXTICK          0xffffffff /(int)CLOCKOS * DIVISOROS
  
 #if   defined ( ARM )     
   #define  WORDSIZE    4
@@ -80,15 +79,14 @@
 /*                    API                                        */
 /*****************************************************************/
 
-           // Kernel
+         // Kernel
 char          startOS(void (*[])(void), int, int, void (*)(void), void (*)(int));
 unsigned int* queryReadyTableOS(void);
 int           nonBlockingCallbackOS(int (*)(void));
 void          deleteSelfOS(void);
 char          errorPendSizeOS(void);
 void          schedulerOS(void);
-int           tickMatchOS(int);
-          // Stack
+         // Stack
 int           ramToPaddingOS(int, int);
 int           paddingToRamOS(int, int);						
 int           autoPackItemsOS(void);
@@ -99,27 +97,27 @@ int           queryResidueStackOS(void);
 char          queryDangerTaskOS(void);
 void          checkStackSafetyOS(int, int);
 char          querySafeLevelOS(void);
-           // Delay
+         // Delay
 void          delayTickOS(int);
 void          delayTimeOS(int, int, int, int);
 void          delayUntilEqualOS(int*, int*);
 void          delayUntilTrueOS(int*);
-           // Semaphore
+         // Semaphore
 void          postSemOS(int);
 int           pendSemOS(int*, int);
-           // Mail Message
+         // Mail Message
 void          postMailOS(int, void*);
 void*         readMailOS(int, char);
 void*         pendMailOS(int*, int*, char, int);
-           // Flag
+         // Flag
 void          postFlagOS(int, unsigned int, char);
 int           pendFlagOS(int*, unsigned int, char, int);
 char          checkPublicFlagBitOS(int, char);
 unsigned int  queryPublicFlagOS(int);
-           // Mutex
+         // Mutex
 void          postMutexOS(void);
 int           pendMutexOS(int*, int);
-           // Memory Management
+         // Memory Management
 void*         getMemoryOS(int, int);
 void*         getMemoryWithPutOS(int, int);
 void*         margeAddressOS(void*);
@@ -134,7 +132,7 @@ int           leakMemoryNoOS(void);
 int           lackMemoryNoOS(void);
 int*          leakMemoryNoAllOS(void);
 int*          lackMemoryNoAllOS(void);
-           // Queue
+         // Queue
 int           postQOS(int, void*);
 void*         readQOS(int, int*);
 void*         pendQOS(int*, char, int*, int*, int);
@@ -145,9 +143,12 @@ void          qRxIntFloatOS(int, void*);
 void          qTxIntFloatOS(int, void*, int, char);
 void          qTxRealtimeOS(int, void*);
 void*         qRxRealtimePendOS(int);
-           // Task Loading
+         // Task Loading
 int*          relativeTaskLoadOS(void);
 int           idleTaskLoadOS(void);
+         // Low Power Mode
+int           tickDistortionOS(int);
+unsigned int  matchRegisterOS(void);		 
 	
 	
 

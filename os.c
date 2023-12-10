@@ -59,7 +59,6 @@ int           TickPerSecondOS;
 int           WaitTickOS[TASKSIZE];     // exclude idleTaskOS()
 unsigned int  ReadyTableOS[TABLELENGTH];  // bit index is priority
 unsigned int  CountTaskOS[TASKSIZE]; 
-unsigned int  MatchRegisterOS;
 int           SystemTickOS;
 char          ErrorPendSizeOS = 0;
 char          PowerOnOS = 1;
@@ -106,8 +105,10 @@ int           TaskClockOS[TASKSIZE+1][2];   // [0]- before task executing  [1]- 
 unsigned int  TaskExecuteClockOS[TASKSIZE+1];  // clock elapsed
 int           TaskLoadOS[TASKSIZE];       // %
 
+unsigned int  MinDelayTickOS;
+
 /*****************************************************************/
-/*                        Task                                   */
+/*                        Kernel                                 */
 /*****************************************************************/
 
 void* mallocOS(int);                  // called by initializeEventOS()
@@ -116,6 +117,7 @@ void  setTableOS(unsigned int*, int); // called by initializeTaskOS()
 void  idleTaskOS(void);               // used   by initializeTaskOS()
 char  checkResidueOS(int);            // called by schedulerOS()
 void  checkSafeLevelOS(void);         // called by schedulerOS()
+void  minDelayTickOS(void);           // called by schedulerOS()
 char  checkDelayUntilOS(void);        // called by SysTick_Handler()
 void  nonBlockingTransferOS(void);    // called by SysTick_Handler()
 void  delayTickOS(int);               // called by deleteSelfOS()
@@ -282,63 +284,6 @@ void currentExecuteClockOS(void)
 	 ENABLE_INTERRUPT; 		
 }
 
-void matchRegisterOS(void)
-{
-	  int  i;
-	  unsigned int  min = 0xffffffff;
-	  unsigned int  MAX = 0xffffffff / (int)CLOCKOS * DIVISOROS   ;
-
-    for (i=0; i<TASKSIZE; i++)
-		{
-        if ( (WaitTickOS[i] > 0) && (WaitTickOS[i] < min) )
-				{
-					  min = WaitTickOS[i];
-				}
-		}			
-		
-    for (i=0; i<TASKSIZE; i++)
-		{
-			 DISABLE_INTERRUPT;
-			  WaitTickOS[i] -= min;
-			 ENABLE_INTERRUPT;
-			
-			  if ( WaitTickOS[i] == 0 )
-				{
-					  setTableOS(ReadyTableOS, i);
-				}
-		}
-
-		if ( min > MAX )  // 32 bits overflow
-		{
-			 min = MAX;
-		}
-		
-	 DISABLE_INTERRUPT;		
-		SystemTickOS += min;
-		MatchRegisterOS = min;
-	 ENABLE_INTERRUPT;		
-}
-
-
-          // low power mode
-int tickMatchOS(int prescale)
-{
-	  int remainder = -1;
-	  float a, b;
-	  int   x;
-
-	  if ( prescale == (DIVISOROS - 1) )
-		{
-	     a = (float)CLOCKOS/(float)DIVISOROS;   
-	     x = (int)CLOCKOS/(int)DIVISOROS;       
-	     b = a - x;
-	     remainder = (int)(1000 * b);
-	  }
-	
-	  return remainder;
-}
-
-
 
 int highestEventPriorityOS(void)
 {
@@ -429,7 +374,7 @@ void schedulerOS(void)
 						 
              if ( (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS )
              {
-							    matchRegisterOS();
+							    minDelayTickOS();
 							    PowerOnOS = 0;
              }							 
 				}
@@ -2760,7 +2705,71 @@ int idleTaskLoadOS(void)
 	}
 
 
-/*************************************************************/
+/*****************************************************************/
+/*                     Low Power Mode                            */
+/*****************************************************************/
+
+void minDelayTickOS(void)
+{
+	  int  i;
+	  unsigned int  min = 0xffffffff;
+
+    for (i=0; i<TASKSIZE; i++)
+		{
+        if ( (WaitTickOS[i] > 0) && (WaitTickOS[i] < min) )
+				{
+					  min = WaitTickOS[i];
+				}
+		}			
+		
+    for (i=0; i<TASKSIZE; i++)
+		{
+			 DISABLE_INTERRUPT;
+			  WaitTickOS[i] -= min;
+			 ENABLE_INTERRUPT;
+			
+			  if ( WaitTickOS[i] == 0 )
+				{
+					  setTableOS(ReadyTableOS, i);
+				}
+		}
+
+		if ( min > MAXTICK )  // 32 bits overflow
+		{
+			 min = MAXTICK;
+		}
+		
+	 DISABLE_INTERRUPT;		
+		SystemTickOS += min;
+		MinDelayTickOS = min;
+	 ENABLE_INTERRUPT;		
+}
+
+
+int tickDistortionOS(int prescale)
+{
+	  int remainder = -1;
+	  float a, b;
+	  int   x;
+
+	  if ( prescale == (DIVISOROS - 1) )
+		{
+	     a = (float)CLOCKOS/(float)DIVISOROS;   
+	     x = (int)CLOCKOS/(int)DIVISOROS;       
+	     b = a - x;
+	     remainder = (int)(1000 * b);
+	  }
+	
+	  return remainder;
+}
+
+
+unsigned int matchRegisterOS(void)
+{
+	  return  MinDelayTickOS * (CLOCKOS / (int)DIVISOROS);
+}
+
+/*************************** end **********************************/
 
 
 

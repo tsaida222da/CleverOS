@@ -234,13 +234,10 @@ void schedulerOS(void)
             highestPriority =  findLeastBitOS(ReadyTableOS);
 				}
 							
-				if( CurrentPriorityOS != (int)TASKSIZE ) 
+				if( (CurrentPriorityOS != (int)TASKSIZE) && (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS ) 
 			  {
-				     if( (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS ) 
-			       {
-                  minDelayTickOS();
-                  PowerOnOS = 0;							 
-						 }		 
+             minDelayTickOS();
+             PowerOnOS = 0;							 
 				}
 				else if( (highestPriority != (int)TASKSIZE) && (!PowerOnOS)) 
 			  {

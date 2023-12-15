@@ -357,9 +357,9 @@ void schedulerOS(void)
 	                ENABLE_INTERRUPT;
 						}
 			  } // while  
-
-				if( CurrentPriorityOS != (int)TASKSIZE ) 
-			  {
+                        // task loading and safety
+				if( (CurrentPriorityOS != (int)TASKSIZE) && (highestPriority != CurrentPriorityOS) ) 
+			  {					
 						 CountTaskOS[CurrentPriorityOS]++;
 									
 						 if ( CountTaskOS[CurrentPriorityOS] >= COUNTSTARTOS )
@@ -371,12 +371,12 @@ void schedulerOS(void)
              {
 	                CountTaskOS[CurrentPriorityOS] = COUNTSTARTOS;
              }	
-						 
-             if ( (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS )
-             {
-							    minDelayTickOS();
-							    PowerOnOS = 0;
-             }							 
+				}
+				          // low power mode
+				if( (CurrentPriorityOS != (int)TASKSIZE) && (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS )
+			  {
+					   minDelayTickOS();
+					   PowerOnOS = 0;	 
 				}
 				else if ( (highestPriority != (int)TASKSIZE) && (!PowerOnOS) )
 				{

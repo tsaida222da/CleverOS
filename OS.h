@@ -46,7 +46,7 @@
 #endif
 
            // check safety
-#define  COUNTSTARTOS     10
+#define  COUNTSTARTOS      5
 #define  MAXLEVEL          5
 #define  NULL              0x0
 
@@ -96,7 +96,7 @@ int*          minPackSizeOS(void);
 int           queryResidueStackOS(void);
 char          queryDangerTaskOS(void);
 void          checkStackSafetyOS(int, int);
-char          querySafeLevelOS(void);
+char          querySafeLevelOS(int);
          // Delay
 void          delayTickOS(int);
 void          delayTimeOS(int, int, int, int);

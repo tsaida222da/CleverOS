@@ -1036,13 +1036,20 @@ int queryResidueStackOS(void)
 
 char queryDangerTaskOS(void)
 {
-		 return checkSetBitOS(DangerStackOS, CurrentPriorityOS);
+		return checkSetBitOS(DangerStackOS, CurrentPriorityOS);
 }
 
 
-char querySafeLevelOS(void)
+char querySafeLevelOS(int count)
 {
-		 return SafeLevelOS[CurrentPriorityOS];
+	  char level = MAXLEVEL + 4;
+	
+	   if ( count > COUNTSTARTOS )
+		 {
+				 level = SafeLevelOS[CurrentPriorityOS];
+		 }
+		 
+		 return  level;
 }
 
 

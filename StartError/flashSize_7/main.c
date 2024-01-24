@@ -18,7 +18,6 @@ void task0(void)
 			   errorPendSizeOS();
 			   deleteSelfOS();
 			   schedulerOS();
-			   tickMatchOS(2);
 
 			   ramToPaddingOS(2000, 2);
 			   paddingToRamOS(20, 2);
@@ -29,7 +28,7 @@ void task0(void)
 				 queryResidueStackOS();
          queryDangerTaskOS();
          checkStackSafetyOS(1, 1);
-				 querySafeLevelOS();
+				 querySafeLevelOS(8);
 
 				 delayTickOS( 8 );
 			   delayTimeOS(0, 0, 0, 10);				
@@ -79,6 +78,10 @@ void task0(void)
 	
 			   relativeTaskLoadOS();
          idleTaskLoadOS();
+				 
+				 tickDistortionOS(2);
+				 matchRegisterOS();
+				 
          ASSERTOS(0);	
     } 
 } 

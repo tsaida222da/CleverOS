@@ -94,22 +94,15 @@ int fib(int n)    // Fibonacci numbers
 void task0(void)  
 { 
 	 int  i = 1;
-	 int  j = 1;
+	 int  j = 0;
 	 int  level;
 	
    while(1) 
    { 
-       if ( i++ >= COUNTSTARTOS )
-			 {
-				   level = querySafeLevelOS();
-				 	 sendByte( '0' + level );		
-				   if ( level > 1 )
-					 {
-				       fib(j++);
-						 	 sendByte('A');
-					 }
-			 }	
-		   delayTickOS(10);
+			  level = querySafeLevelOS(i++);
+				sendByte( '0' + level );		
+				fib(++j);
+		    delayTickOS(10);
     } 
 } 
 

@@ -137,7 +137,7 @@ void task2(void)
 		  pchar = dangerAddressOS(pfloat, &dangerBytes);
 		  if( dangerBytes > 0 )     
 			{
-				  pdouble = (double*)pfloat + 24;
+				  pdouble = (double*)(pfloat + 24);
 		 
 	    	 *pfloat = 0.7;
 	    	 *pfloat *= 	10.0;  // 7

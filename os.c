@@ -2466,11 +2466,9 @@ void qTxRealtimeOS(int number, void *messageAddr)
 
 void* qRxRealtimePendOS(int number)
 {
-		void** address;
+	  pendQOS(&number, NULL, NULL, INFINITEOS);;
 	
-	  address = pendQOS(&number, NULL, NULL, INFINITEOS);
-	
-	  return  (void*)(*address);
+	  return  qRetrieveOS[number][0];
 }
 
 

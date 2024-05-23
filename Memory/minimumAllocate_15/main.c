@@ -95,7 +95,7 @@ void display(void)
 	 int     BULKLEN;
 	 char    table[10];
 	
-   BULKLEN = queryFreeBulkNoOS(table);
+   BULKLEN = queryFreeBulkNoOS(table, 10);
 	 for (j=0; j<BULKLEN; j++)
 	 {
 	     sendByte('0'+ table[j] );

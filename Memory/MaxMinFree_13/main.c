@@ -98,7 +98,7 @@ void maxMin(void)
       bytes = maxFreeMemoryOS();
 		  print32bits(bytes);
 	
-		  BULKLEN = queryFreeBulkNoOS(table);
+		  BULKLEN = queryFreeBulkNoOS(table, 10);
 		  for (j=0; j<BULKLEN; j++)
 		  {
 			    sendByte('0'+ table[j] );

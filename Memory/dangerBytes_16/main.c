@@ -103,7 +103,7 @@ void task0(void)
        putMemoryOS(0);
 			
 			 pint = getMemoryOS(0, 1);
-		   BULKLEN = queryFreeBulkNoOS(table);
+		   BULKLEN = queryFreeBulkNoOS(table, 10);
 		   for (j=0; j<BULKLEN; j++)
 		   {
 			     sendByte('0'+ table[j] );

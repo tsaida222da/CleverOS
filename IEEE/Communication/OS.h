@@ -135,6 +135,7 @@ int           qReadyNumberOS(void*);
 int           queryRemainItemsOS(int);
 void          qRxIntFloatOS(int, void*);
 void          qTxIntFloatOS(int, void*, int, char);
+int           packetLengthOS(int);
 void          qTxRealtimeOS(int, void*);
 void*         qRxRealtimePendOS(int);
          // Task Loading

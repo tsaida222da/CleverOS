@@ -17,6 +17,9 @@ extern int  interruptNumberOS(void);
 extern void setPSPOS(unsigned int);
 extern void setCONTROLOS(unsigned int);
 
+extern void sendByte(char data);
+extern void print32bits(unsigned  int  y);
+
 typedef struct
 {
    void**  q;    
@@ -2482,16 +2485,20 @@ int queryRemainItemsOS(int number)
 void qTxIntFloatOS(int qNo, void* pData, int length, char power)
 {
 	DISABLE_INTERRUPT;
-	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeTx) )
+	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeTx) && (length > 0) )
 	  {
 		   QTxRxOS[qNo].itemsTx = 0;
 	     QTxRxOS[qNo].dataTx = pData;
 	     QTxRxOS[qNo].length = length;
 	     QTxRxOS[qNo].power = power;
 		   QBodyOS[qNo].inIndex = 0;
+			
+			 QTxRxOS[qNo].completeTx = 0;	 
 	  }
-	  QTxRxOS[qNo].completeTx = 0;	 
-		FlagTxRxOS = 1;
+		else if ( length == 0 )
+		{
+			  QTxRxOS[qNo].length = 0;
+		}
 	ENABLE_INTERRUPT;
 }
 
@@ -2513,11 +2520,6 @@ int writeQOS(int qNo, void *messageAddr, int* remainTxItems)
 			   {
 				      QBodyOS[qNo].inIndex = 0;				
 			   }
-				 
-				 if ( QTxRxOS[qNo].itemsTx ==  QTxRxOS[qNo].length )
-		     {
-		          QTxRxOS[qNo].completeTx = 1;
-		     }
 		   ENABLE_INTERRUPT;
 				 
 				 remainQItems = QLENGTH - QBodyOS[qNo].items;
@@ -2573,9 +2575,10 @@ void qRxIntFloatOS(int qNo, void* pData)
 		 	 QTxRxOS[qNo].itemsRx = 0;
 			 QTxRxOS[qNo].dataRx = pData;	
 		   QBodyOS[qNo].outIndex = 0;
+			
+			 QTxRxOS[qNo].completeRx = 0;	
+		   FlagTxRxOS = 1;
 	  }
-	  QTxRxOS[qNo].completeRx = 0;	
-		FlagTxRxOS = 1;
 	ENABLE_INTERRUPT;	
 }
 				 
@@ -2622,6 +2625,7 @@ void qRxOS(void)
 				     if ( QTxRxOS[i].itemsRx ==  QTxRxOS[i].length )
 		         {
 		            QTxRxOS[i].completeRx = 1;
+							  QTxRxOS[i].completeTx = 1;
 		         }
 		        ENABLE_INTERRUPT;						
 	        } 	// for
@@ -2631,6 +2635,12 @@ void qRxOS(void)
 				 ENABLE_INTERRUPT;	
 		   }
 	 } // for
+}
+
+
+int packetLengthOS(int qNo)
+{
+	  return  QTxRxOS[qNo].length;
 }
 
 

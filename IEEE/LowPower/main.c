@@ -86,14 +86,7 @@ void print32bits(unsigned  int  y)
 }
 
 
-void stopPeripheralClock(void)
-{
- // stop peripheral clock
-    sendByte('1');
-	  __wfi();
-}
-
-void lowPowerTimer(void)
+void stopPeripheralPower(void)
 {
 		 LPC_SYSCON->PDRUNCFG  |= 1 << 5;      // Power-down System Osc 
 		 SystickControlRegisterOS = ~(1<<0) & ~(1<<1) & ~(1<<2);  // disable Systen Tick timer	
@@ -104,13 +97,17 @@ void lowPowerTimer(void)
 		 LPC_TMR32B0->MCR = (1<<3) | (1<<4);   // interrupt and reset by MR1
 		 LPC_TMR32B0->TCR = (1<<1);            // reset low-power counter
 		 LPC_TMR32B0->TCR = (1<<0);            // enable low-power counter
+ // stop peripheral power
 	
-	   stopPeripheralClock();
+     sendByte('1');
+	   __wfi();
 }
 
 
-void resumePeripheralClock(void)
+
+void TIMER32_0_IRQHandler(void)  // simulate low-power timer
 {
+	  LPC_TMR32B0->IR = (1<<1);   // clear interrupt flag
 		LPC_TMR32B0->TCR &= ~(1<<0);           // disable low-power counter
 		LPC_SYSCON->SYSAHBCLKCTRL &= ~(1<<9);  // disable LPC_TMR32B0 clock				
 
@@ -118,16 +115,10 @@ void resumePeripheralClock(void)
 	  SystickLoadRegisterOS = CLOCKOS - 1;
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable Systen Tick timer
-
- // resume peripheral clock
+ // resume peripheral power
+	
     sendByte('2');
-}
-
-
-void TIMER32_0_IRQHandler(void)  // simulate low-power timer
-{
-	  LPC_TMR32B0->IR = (1<<1);   // clear interrupt flag
-		resumePeripheralClock();
+	
 		schedulerOS();
 }
 
@@ -171,7 +162,7 @@ void task3(void)
     }  
 } 
 
-void (*taskName[])(void)={task0,task1, task2,task3};
+void (*taskName[])(void)={task0, task1, task2, task3};
 
 	
       // ErrorCode : 1- TaskCountOS != TASKSIZE+1
@@ -186,7 +177,7 @@ int main(void)
 	
 	   arraySize = sizeof(taskName) / sizeof(taskName[0]);
      startTaskIndex = 0;
-     errorCode = startOS(taskName,arraySize,startTaskIndex, lowPowerTimer, NULL); 
+     errorCode = startOS(taskName,arraySize,startTaskIndex, stopPeripheralPower, NULL); 
 		 sendByte('0'+ errorCode);	// never execute if start successfully
 	 
 } // main

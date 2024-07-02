@@ -156,8 +156,7 @@ void task4(void)
    while(1)
    { 	
 		   sendByte('E');
-			
-       print32bits( minimumStackOS() );
+
 		 	 print32bits( autoPackItemsOS() ); 
 			 
 			 delayTickOS(16);

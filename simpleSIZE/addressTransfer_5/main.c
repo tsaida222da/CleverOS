@@ -145,7 +145,7 @@ void task1(void)
    while(1)
    {
 		 	 sendByte('N');
-		 	 pvoid = pendQOS(number, AUTOREAD, &readyNo, NULL, INFINITEOS ); 
+		 	 pvoid = pendQOS(number, &readyNo, NULL, INFINITEOS ); 
 		 	 sendByte('#');
 		   sendByte('0' + readyNo );
 		 

@@ -150,7 +150,7 @@ void UART_IRQHandler(void)
 			   pendMailOS(n, NULL, NOTCLEARMAIL, INFINITEOS);
 			   pendFlagOS(n, 0x0, FLAG_MATCH_ANY, INFINITEOS);
 			   pendMutexOS(n, INFINITEOS);
-			   pendQOS(n, 0, NULL, NULL, INFINITEOS);			
+			   pendQOS(n, NULL, NULL, INFINITEOS);			
    }
    else if (IIRValue == IIR_CTI)	
    {

@@ -195,7 +195,7 @@ void task3(void)
      while(1) 
      { 
          sendByte('D');	
-			 	 pendQOS(number0, AUTOREAD, NULL, NULL, INFINITEOS );
+			 	 pendQOS(number0, NULL, NULL, INFINITEOS );
 			   sendByte('d');	
 			 	 result = queryReadyTableOS();
          print(result, 5);

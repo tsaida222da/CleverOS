@@ -154,15 +154,15 @@ void task3(void)
 void task4(void)  
 {	 
 	 int  i;
+	 int  bytes;
    int  *pint;
 	
    while(1)
    { 	
 		   sendByte('E');
 			
-       print32bits( minimumStackOS() );
-		 
-		   pint = minPackSizeOS();
+		   pint = minimumStackOS(&bytes);			
+       print32bits( bytes );
 		 
 		   for(i=0; i<5; i++)
 			 {

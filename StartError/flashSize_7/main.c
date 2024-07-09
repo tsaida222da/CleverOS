@@ -22,9 +22,8 @@ void task0(void)
 			   ramToPaddingOS(2000, 2);
 			   paddingToRamOS(20, 2);
          autoPackItemsOS();
-				 minimumStackOS();
+				 minimumStackOS(NULL);
 			   autoMinimumStackOS();
-				 minPackSizeOS();
 				 queryResidueStackOS();
          queryDangerTaskOS();
          checkStackSafetyOS(1, 1);
@@ -59,22 +58,21 @@ void task0(void)
 			   freeOS(pfloat);
 			   maxFreeMemoryOS();
 				 minFreeMemoryOS();
-				 queryFreeBulkNoOS(carray);
+				 queryFreeBulkNoOS(carray, 1);
 			   leakMemoryNoOS();
 			   lackMemoryNoOS();
          leakMemoryNoAllOS();
          lackMemoryNoAllOS();
 
          postQOS(0, 0x0);  
-         pendQOS(n, 1, NULL, NULL, 5);
-			   readQOS(0, NULL);
+         pendQOS(n, NULL, NULL, 5);
 			   qReadyNumberOS(pint);
-			   qSleepOS(pint);
          queryRemainItemsOS(0);
          qRxIntFloatOS(0, 0x0);
 	       qTxIntFloatOS(0, 0x0, 4, 2);
 				 qTxRealtimeOS(0, 0x0);
          qRxRealtimePendOS(0);
+				 packetLengthOS(0);
 	
 			   relativeTaskLoadOS();
          idleTaskLoadOS();

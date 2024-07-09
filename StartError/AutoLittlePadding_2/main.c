@@ -153,11 +153,14 @@ void task3(void)
 
 void task4(void)  
 {	 
+	 int  bytes;
+	
    while(1)
    { 	
 		   sendByte('E');
 			
-       print32bits( minimumStackOS() );
+		   minimumStackOS(&bytes);	
+       print32bits( bytes );
 		 	 print32bits( autoPackItemsOS() ); 
 			 
 			 delayTickOS(16);

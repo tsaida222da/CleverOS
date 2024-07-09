@@ -106,7 +106,7 @@ void task1(void)
     {
 		     sendByte('B');
          pendSemOS(number1, INFINITEOS); 		
-			   pendQOS(number1, 0, NULL, NULL, 1); 
+			   pendQOS(number1, NULL, NULL, 1); 
 			
          errorPendSize = errorPendSizeOS();
 				 sendByte('@');

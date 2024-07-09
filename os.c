@@ -17,9 +17,6 @@ extern int  interruptNumberOS(void);
 extern void setPSPOS(unsigned int);
 extern void setCONTROLOS(unsigned int);
 
-extern void sendByte(char data);
-extern void print32bits(unsigned  int  y);
-
 typedef struct
 {
    void**  q;    
@@ -354,7 +351,7 @@ void schedulerOS(void)
 									 clearTableOS(ReadyTableOS, highestPriority);										
 									 clearTableOS(PriorityOwnEventOS, highestPriority);
 								  DISABLE_INTERRUPT;	
-	                 WaitTickOS[highestPriority] = INFINITEOS;
+	                 WaitTickOS[highestPriority] = ISOLATEOS;
 	                ENABLE_INTERRUPT;
 						}
 			  } // while  
@@ -1221,12 +1218,12 @@ void postSemOS(int number)
 							 {
 				           priority =  EventNumberTaskOS[i].priority;	
 
-						       if ( priority != CurrentPriorityOS )
-							     {
+								   if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
+							     {  
 								       array = EventNumberTaskOS[i].numberArray;
  								       previousValue = -999;
                        k = 0;   
-										 
+						 
                        while( (array != NULL) &&( array[k] >= 0) && ( array[k] != previousValue ) )								 
                        { 
 										      if( array[k] == number )
@@ -1336,7 +1333,7 @@ void postMailOS(int number, void *messageAddr)
 							 {
 				           priority =  EventNumberTaskOS[i].priority;	
 
-						       if ( priority != CurrentPriorityOS )
+						       if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
 							     {
 								       array = EventNumberTaskOS[i].numberArray;
  								       previousValue = -999;
@@ -1484,7 +1481,7 @@ void postMutexOS(void)
 							     {
 				               priority =  EventNumberTaskOS[i].priority;	
 
-						           if ( priority != CurrentPriorityOS )
+						           if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
 							         {
 							             array = EventNumberTaskOS[i].numberArray;   
  
@@ -1627,7 +1624,7 @@ void postFlagOS(int number, unsigned int modifyPublicFlag, char setOrClear )
 							 {	 
 								  priority = EventNumberTaskOS[i].priority;
 
-								  if(   priority != CurrentPriorityOS   )
+								  if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
 							    {
 								     array = EventNumberTaskOS[i].numberArray;
  								     previousValue = -999;
@@ -2264,7 +2261,7 @@ int postQOS(int number, void *messageAddr)
 							 {
 				          priority = EventNumberTaskOS[i].priority;	
 								 
-						      if ( priority != CurrentPriorityOS )
+						      if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
 					        {
 							       array = EventNumberTaskOS[i].numberArray;
 	 							     previousValue = -999;

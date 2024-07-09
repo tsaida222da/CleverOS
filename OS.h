@@ -52,6 +52,7 @@
 
            // timeout infinite
 #define  INFINITEOS       -1
+#define  ISOLATEOS        -2
 
            // event
 #define  SEM               0

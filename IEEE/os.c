@@ -342,17 +342,17 @@ void schedulerOS(void)
 						danger = 0;
 						if ( checkSetBitOS(DangerStackOS, highestPriority) > 0 )
 						{ 
-								   danger = 1;
-								   if ( overflowHandlerOS != NULL)
-								   {
-								       overflowHandlerOS(highestPriority );
-								   }
-
-									 clearTableOS(ReadyTableOS, highestPriority);										
-									 clearTableOS(PriorityOwnEventOS, highestPriority);
-								  DISABLE_INTERRUPT;	
-	                 WaitTickOS[highestPriority] = ISOLATEOS;
-	                ENABLE_INTERRUPT;
+							  danger = 1;
+							  clearTableOS(ReadyTableOS, highestPriority);										
+								clearTableOS(PriorityOwnEventOS, highestPriority);
+							 DISABLE_INTERRUPT;	
+	              WaitTickOS[highestPriority] = ISOLATEOS;
+	             ENABLE_INTERRUPT;
+							
+								if ( overflowHandlerOS != NULL)
+								{
+								   overflowHandlerOS(highestPriority );
+								}
 						}
 			  } // while  
                         // task loading and safety
@@ -841,16 +841,15 @@ void deleteSelfOS(void)
 /*                          Stack                                */
 /*****************************************************************/
 
-int minimumStackOS(void) 
+int* minimumStackOS(int* minimumRam) 
 {
-   int i;
-   int k;
-   int minimumPack= 0;
-   unsigned int  *spAddr;
-	 int minimumRam;
+    int i;
+    int k;
+    int minimumPack= 0;
+    unsigned int  *spAddr;
 
-   for ( i=0; i<= TASKSIZE; i++ )  
-   {
+    for ( i=0; i<= TASKSIZE; i++ )  
+    {
        spAddr = TaskSpPointerOS[i];
 
        k = 0;				
@@ -867,9 +866,9 @@ int minimumStackOS(void)
 				
     } // for
 
-    minimumRam = ( minimumPack + CPUREGISTER*(TASKSIZE+1) ) * WORDSIZE;
-			
-    return  minimumRam;
+    *minimumRam = ( minimumPack + CPUREGISTER*(TASKSIZE+1) ) * WORDSIZE;
+
+		return PackSizeOS;
 }
 
 
@@ -909,15 +908,6 @@ int autoMinimumStackOS(void)
 int autoPackItemsOS(void)
 {
 	  return AutoPackItemsOS;
-}
-
-
-
-int* minPackSizeOS(void)
-{
-	  minimumStackOS();
-		
-	  return PackSizeOS;
 }
 
 

@@ -2,11 +2,11 @@
 
 
 	  // task
-#define  TASKSIZE          6
+#define  TASKSIZE          5
 #define  STACKRAMBYTES     1500
 
     // event and service
-#define  PENDSIZE           4
+#define  PENDSIZE           3
 #define  MEMORYPOOLBYTES    0
 #define  GETMEMORYSIZE      0
 #define  QSIZE              0    

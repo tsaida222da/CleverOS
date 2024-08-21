@@ -89,13 +89,12 @@ void print32bits(unsigned  int  y)
 int task2Wait = 1;
 int task3Wait = 1;
 int task4Wait = 1;
-int task5Wait = 1;
 
 void overflowHandler(int priority)
 {
 	   sendByte('@');
 		 sendByte('0' + priority);
-	
+
 	   switch( priority )
 		 {
 			 case 1:
@@ -111,12 +110,7 @@ void overflowHandler(int priority)
 			 case 3:
 		      postSemOS(2); 
 			    task4Wait = 0;
-			    break;
-			 
-			 case 4:
-		      postSemOS(3); 
-			    task5Wait = 0;
-			    break;			 
+			    break;		 
 		 }
 }
 
@@ -203,25 +197,7 @@ void task4(void)
     } 
 }
 
-void task5(void)  
-{ 
-   int x = 1;
-	 int n1[]={3, -1};
-	 
-   while(1) 
-   { 
-		   if ( task5Wait )
-		   {
-		 	    pendSemOS(n1, INFINITEOS); 
-		   }
-		   sendByte('F');
-		   fib(x++);
-		   checkStackSafetyOS(2, 1);
-		   delayTickOS(10);
-    } 
-}
-
-void (*taskName[])(void)={task0, task1, task2, task3, task4, task5};
+void (*taskName[])(void)={task0, task1, task2, task3, task4};
 	
       // ErrorCode : 1- TaskCountOS != TASKSIZE+1
 int main(void)  

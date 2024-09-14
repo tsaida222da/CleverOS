@@ -92,7 +92,7 @@ void stopPeripheralPower(void)
 		 SystickControlRegisterOS = ~(1<<0) & ~(1<<1) & ~(1<<2);  // disable Systen Tick timer	
 
 		 LPC_SYSCON->SYSAHBCLKCTRL |=  (1<<9); // enable LPC_TMR32B0 clock
-		 LPC_TMR32B0->PR = DIVISOROS - 1;
+		 LPC_TMR32B0->PR = (int)CLOCKOS - 1;
 		 LPC_TMR32B0->MR1 = matchRegisterOS();
 		 LPC_TMR32B0->MCR = (1<<3) | (1<<4);   // interrupt and reset by MR1
 		 LPC_TMR32B0->TCR = (1<<1);            // reset low-power counter
@@ -112,7 +112,7 @@ void TIMER32_0_IRQHandler(void)
 		LPC_SYSCON->SYSAHBCLKCTRL &= ~(1<<9);  // disable LPC_TMR32B0 clock				
 
 	  LPC_SYSCON->PDRUNCFG  &= ~(1 << 5);    // Power-up System Osc 	
-	  SystickLoadRegisterOS = CLOCKOS - 1;
+	  SystickLoadRegisterOS = (int)CLOCKOS - 1;
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable Systen Tick timer
  // resume peripheral power
@@ -137,7 +137,7 @@ void task1(void)
 {	
     while(1) 
     { 
-        sendByte('B');	
+        sendByte('B');			
 				delayTimeOS(5, 0, 0, 0);
     }  
 } 

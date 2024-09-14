@@ -119,12 +119,12 @@ void  minDelayTickOS(void);           // called by schedulerOS()
 char  checkDelayUntilOS(void);        // called by SysTick_Handler()
 void  nonBlockingTransferOS(void);    // called by SysTick_Handler()
 void  delayTickOS(int);               // called by deleteSelfOS()
-
+	
 #if   defined  CM0 
 
-void initializeSysTickOS(unsigned int clock)
+void initializeSysTickOS(void)
 {
-	  SystickLoadRegisterOS = clock -1;
+	  SystickLoadRegisterOS = (unsigned int)CLOCKOS -1;
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable, interrupt, system cpu clock
 }
@@ -414,7 +414,7 @@ void idleTaskOS(void)
 {
     while(1) 
 		{ 					 
-				    // low power mode
+				      // low power mode
 		     if ( ( lowPowerTimerOS != NULL ) && !( PowerOnOS ) )
 				 {
 					   lowPowerTimerOS();
@@ -584,10 +584,10 @@ void assignPaddingSpOS(void)
 
 
 
-char checkStartErrorOS(int arraySize, int startPriority)
+char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(void))
 {
-	    int i;
-		  int amount= 0;
+	    int  i;
+		  int  amount= 0;
 	    char errorCode= 0;
 	
 	    for(i=0; i<TASKSIZE; i++)
@@ -607,8 +607,18 @@ char checkStartErrorOS(int arraySize, int startPriority)
 			
       if (  (startPriority >=  TASKSIZE) || (startPriority < 0)  )  
 		  { 	
-			    errorCode = 3;     
+			    errorCode = 3;  				
 		  }
+			
+			if ( (lowPowerTimer != NULL) && ((int)PADDINGIDLE < 2) )
+			{
+			    errorCode = 4;  
+			}
+
+			if ( ((unsigned int)CPUclockOS % (unsigned int)CLOCKOS) != 0 )
+			{
+					errorCode = 5;	 
+			}
 			
 	    return errorCode;
 }
@@ -618,10 +628,9 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 { 
 	  char         errorCode;
 	  unsigned int topStackPointer;
-	  int          CPUclock = CPUclockOS;
-	  int          OSclock = CLOCKOS;
-
-		errorCode = checkStartErrorOS(arraySize, startPriority);
+	  unsigned int OSclock = CLOCKOS;
+	
+		errorCode = checkStartErrorOS(arraySize, startPriority, lowPowerTimer);
 
 	  if( errorCode )
 		{
@@ -630,15 +639,14 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 		
 		lowPowerTimerOS = lowPowerTimer;
 		overflowHandlerOS = danger;
-    initializeSysTickOS(CLOCKOS);
+    initializeSysTickOS();
     setHandlerPriorityOS();		
 		initializeEventOS();
 		initializeTaskOS(taskName);
 
-		TickPerSecondOS = CPUclock / OSclock;
+		TickPerSecondOS = (int)((unsigned int)CPUclockOS / OSclock);
     CurrentPriorityOS = startPriority;			 
-		
-		topStackPointer = (int)TaskSpPointerOS[CurrentPriorityOS+1];
+		topStackPointer = (unsigned int)TaskSpPointerOS[CurrentPriorityOS+1];
 		setPSPOS(topStackPointer);
     setCONTROLOS(0x02);         // use PSP
 		
@@ -866,7 +874,10 @@ int* minimumStackOS(int* minimumRam)
 				
     } // for
 
-    *minimumRam = ( minimumPack + CPUREGISTER*(TASKSIZE+1) ) * WORDSIZE;
+		if ( minimumRam != NULL )
+		{
+        *minimumRam = ( minimumPack + CPUREGISTER*(TASKSIZE+1) ) * WORDSIZE;
+		}
 
 		return PackSizeOS;
 }
@@ -1053,6 +1064,7 @@ void delayTickOS(int tick)
         schedulerOS();	
 		}
 } 
+
 
 void delayTimeOS( int hour, int minute, int second, int  mS)
 {
@@ -2721,12 +2733,7 @@ void minDelayTickOS(void)
 					  setTableOS(ReadyTableOS, i);
 				}
 		}
-
-		if ( min > MAXTICK )  // 32 bits overflow
-		{
-			 min = MAXTICK;
-		}
-		
+     	
 	 DISABLE_INTERRUPT;		
 		SystemTickOS += min;
 		MinDelayTickOS = min;
@@ -2734,28 +2741,11 @@ void minDelayTickOS(void)
 }
 
 
-int tickDistortionOS(int prescale)
-{
-	  int remainder = -1;
-	  float a, b;
-	  int   x;
-
-	  if ( prescale == (DIVISOROS - 1) )
-		{
-	     a = (float)CLOCKOS/(float)DIVISOROS;   
-	     x = (int)CLOCKOS/(int)DIVISOROS;       
-	     b = a - x;
-	     remainder = (int)(1000 * b);
-	  }
-	
-	  return remainder;
-}
-
-
 unsigned int matchRegisterOS(void)
 {
-	  return  MinDelayTickOS * (CLOCKOS / (int)DIVISOROS);
+	  return  MinDelayTickOS;
 }
+
 
 /*************************** end **********************************/
 

@@ -31,10 +31,6 @@
            // select OS tick
 #define  CLOCKOS          OSCLOCK_100mS
 
-           // low power mode
-#define  DIVISOROS        100000
-#define	 MAXTICK          0xffffffff /(int)CLOCKOS * DIVISOROS
- 
 #if   defined ( ARM )     
   #define  WORDSIZE    4
        // core register address
@@ -87,9 +83,8 @@ void          schedulerOS(void);
 int           ramToPaddingOS(int, int);
 int           paddingToRamOS(int, int);						
 int           autoPackItemsOS(void);
-int           minimumStackOS(void);
+int*          minimumStackOS(int*);
 int           autoMinimumStackOS(void);
-int*          minPackSizeOS(void);
 int           queryResidueStackOS(void);
 char          queryDangerTaskOS(void);
 void          checkStackSafetyOS(int, int);
@@ -143,8 +138,9 @@ void*         qRxRealtimePendOS(int);
 int*          relativeTaskLoadOS(void);
 int           idleTaskLoadOS(void);
          // Low Power Mode
-int           tickDistortionOS(int);
-unsigned int  matchRegisterOS(void);		 
+unsigned int  matchRegisterOS(void);	
+
+
 	
 	
 

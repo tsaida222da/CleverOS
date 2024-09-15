@@ -22,9 +22,10 @@ char          PowerOnOS = 1;
 char          SemNumberTaskOS[TASKSIZE];  // initialized in startOS(), used in pendSemOS(), array index is priority value, array value is task's pending SemNumber(0 ~ 255).
 char          PriorityOwnEventOS[TASKSIZE];     // array index is priority value, 0 <= priority <=  TASKSIZE - 1
 
-void initializeSysTickOS(unsigned int clock)
+
+void initializeSysTickOS(void)
 {
-	  SystickLoadRegisterOS = clock -1;
+	  SystickLoadRegisterOS = (int)CLOCKOS -1;
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable, interrupt, system(CPU) clock
 }
@@ -139,7 +140,7 @@ __asm void setCONTROLOS(unsigned int usePSP)
 }
 
 
-
+          // low power mode
 void minDelayTickOS(void)
 {
 	  int  i;
@@ -164,11 +165,6 @@ void minDelayTickOS(void)
 					  setReadyTableOS(i);
 				}
 		}
-		
-		if ( min > MAXTICK )  // overflow
-		{
-			 min = MAXTICK;
-		}
 
 	 DISABLE_INTERRUPT;		
 		MinDelayTickOS = min;
@@ -176,28 +172,10 @@ void minDelayTickOS(void)
 }
 
 
-          // low power mode
-int tickDistortionOS(int prescale)
-{
-	  int remainder = -1;
-	  float a, b;
-	  int   x;
-
-	  if ( prescale == (DIVISOROS - 1) )
-		{
-	     a = (float)CLOCKOS/(float)DIVISOROS;   
-	     x = (int)CLOCKOS/(int)DIVISOROS;       
-	     b = a - x;
-	     remainder = (int)(1000 * b);
-	  }
-	
-	  return remainder;
-}
-
 
 unsigned int matchRegisterOS(void)
 {
-	  return  MinDelayTickOS * (CLOCKOS / (int)DIVISOROS);
+	  return  MinDelayTickOS;
 }
 
 
@@ -293,23 +271,55 @@ void initializeTaskOS( void (*handler)(void), int priority)
 } 
 
 
+char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(void))
+{
+	   char errorCode= 0;
+
+     if ( arraySize >= 32  )   // maximum TASKSIZE is 31
+		 { 	
+		     errorCode = 1; 
+		 }
+		 
+     if ( arraySize !=  (int)TASKSIZE  )  
+		 { 	
+		     errorCode = 2;     // error will stop OS
+		 }			
+			
+     if (  (startPriority >=  (int)TASKSIZE) || (startPriority < 0)  )  
+		 { 	
+		     errorCode = 3;  				
+		 }
+			
+		 if ( (lowPowerTimer != NULL) && ((int)PADDING < 10) )
+		 {
+		     errorCode = 4;  
+		 }
+
+		 if ( ((unsigned int)CPUclockOS % (unsigned int)CLOCKOS) != 0 )
+		 {
+				 errorCode = 5;	 
+		 }
+			
+	   return  errorCode;
+}
+
+
           // ReadyTable is initialized
 char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void))
 { 
-	   int         i;
+	   int          i;
+	   char         errorCode;
+	   unsigned int OSclock = CLOCKOS;
+	
+		 errorCode = checkStartErrorOS(arraySize, startPriority, lowPowerTimer);
 
-     if ( arraySize !=  (int)TASKSIZE  )  
-		 { 	
-			   return 1;     // error will stop OS
-		 }
-		 
-     if ( arraySize >= 32  )   // maximum TASKSIZE is 31
-		 { 	
-			   return 2;     // error will stop OS
-		 }		
-		 
+	   if( errorCode )
+		 {
+			  return errorCode;
+		 }	
+
 		 lowPowerTimerOS = lowPowerTimer;
-	   initializeSysTickOS(CLOCKOS);
+	   initializeSysTickOS();
 		 setHandlerPriorityOS();	
 		 
 		       // initialize  tasks
@@ -325,11 +335,11 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 		
 		 initializeTaskOS(idleTaskOS, TASKSIZE); 
 
-		 TickPerSecondOS = SystemCoreClock / CLOCKOS;
+		 TickPerSecondOS = (int)((unsigned int)CPUclockOS / OSclock);
      CurrentPriorityOS = startPriority;		 
      CurrentTaskOS = &TaskOS[CurrentPriorityOS]; 
 
-		 setPSPOS((int)&CurrentTaskOS->registerStack[15] + 4);
+		 setPSPOS((unsigned int)&CurrentTaskOS->registerStack[15] + 4);
      setCONTROLOS(0x02);         // use PSP
 		 
 		 taskName[CurrentPriorityOS]();

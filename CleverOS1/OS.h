@@ -4,21 +4,23 @@
 #define  DISABLE_INTERRUPT  __asm( "cpsid i		\n" );
 #define  ENABLE_INTERRUPT   __asm( "cpsie i		\n" );
 
-#define  OSCLOCK_1S      SystemCoreClock  // defined in system_LPC11xx.c
-#define  OSCLOCK_500mS   SystemCoreClock/2
-#define  OSCLOCK_200mS   SystemCoreClock/5
-#define  OSCLOCK_100mS   SystemCoreClock/10   // OS frequency is 10Hz. 10 ticks per second
-#define  OSCLOCK_50mS    SystemCoreClock/20
-#define  OSCLOCK_10mS    SystemCoreClock/100
-#define  OSCLOCK_1mS     SystemCoreClock/1000
-#define  OSCLOCK_100uS   SystemCoreClock/10000
-#define  OSCLOCK_1M      1000000
+#define  CPUclockOS   SystemCoreClock
+#define  OSCLOCK_1S       CPUclockOS 
+#define  OSCLOCK_500mS    CPUclockOS/2
+#define  OSCLOCK_200mS    CPUclockOS/5
+#define  OSCLOCK_100mS    CPUclockOS/10     // 10 tick per second
+#define  OSCLOCK_50mS     CPUclockOS/20
+#define  OSCLOCK_20mS     CPUclockOS/50
+#define  OSCLOCK_10mS     CPUclockOS/100
+#define  OSCLOCK_5mS      CPUclockOS/200
+#define  OSCLOCK_2mS      CPUclockOS/500
+#define  OSCLOCK_1mS      CPUclockOS/1000
+#define  OSCLOCK_500uS    CPUclockOS/2000
+#define  OSCLOCK_200uS    CPUclockOS/5000
+#define  OSCLOCK_100uS    CPUclockOS/10000
+#define  OSCLOCK_1M       1000000
 
 #define  CLOCKOS         OSCLOCK_100mS  // number of CPU clock per OS tick
-
-                  // low power mode
-#define  DIVISOROS        100000
-#define	 MAXTICK         0xffffffff /(int)CLOCKOS * DIVISOROS
 
 #define  NULL             0x0
 #define  INFINITEOS      -1
@@ -39,5 +41,5 @@ void delayTimeOS(int, int, int, int);
 void postSemOS(char);
 void pendSemOS(char, int);
 void schedulerOS(void);
-int  tickDistortionOS(int);
-unsigned int matchRegisterOS(void);
+unsigned int  matchRegisterOS(void);
+

@@ -294,11 +294,6 @@ char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(v
 		 {
 		     errorCode = 4;  
 		 }
-
-		 if ( ((unsigned int)CPUclockOS % (unsigned int)CLOCKOS) != 0 )
-		 {
-				 errorCode = 5;	 
-		 }
 			
 	   return  errorCode;
 }

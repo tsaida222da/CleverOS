@@ -290,11 +290,6 @@ char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(v
 		     errorCode = 3;  				
 		 }
 			
-		 if ( (lowPowerTimer != NULL) && ((int)PADDING < 10) )
-		 {
-		     errorCode = 4;  
-		 }
-			
 	   return  errorCode;
 }
 

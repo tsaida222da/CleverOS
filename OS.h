@@ -73,73 +73,73 @@
 /*****************************************************************/
 
          // Kernel
-char          startOS(void (*[])(void), int, int, void (*)(void), void (*)(int));
+char          startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void), void (*danger)(int));
 unsigned int* queryReadyTableOS(void);
 int           nonBlockingCallbackOS(int (*)(void));
 void          deleteSelfOS(void);
 char          errorPendSizeOS(void);
 void          schedulerOS(void);
          // Stack
-int           ramToPaddingOS(int, int);
-int           paddingToRamOS(int, int);						
+int           ramToPaddingOS(int ramBytes, int taskSize);
+int           paddingToRamOS(int totalPadding, int taskSize);						
 int           autoPackItemsOS(void);
-int*          minimumStackOS(int*);
+int*          minimumStackOS(int* minimumRam);
 int           autoMinimumStackOS(void);
 int           queryResidueStackOS(void);
 char          queryDangerTaskOS(void);
-void          checkStackSafetyOS(int, int);
-char          querySafeLevelOS(int);
+void          checkStackSafetyOS(int startCount, int level);
+char          querySafeLevelOS(int count);
          // Delay
-void          delayTickOS(int);
-void          delayTimeOS(int, int, int, int);
-void          delayUntilEqualOS(int*, int*);
-void          delayUntilTrueOS(int*);
+void          delayTickOS(int tick);
+void          delayTimeOS( int hour, int minute, int second, int mS);
+void          delayUntilEqualOS(int *a, int *b);
+void          delayUntilTrueOS(int *a);
          // Semaphore
-void          postSemOS(int);
-int           pendSemOS(int*, int);
-         // Mail Message
-void          postMailOS(int, void*);
-void*         readMailOS(int, char);
-void*         pendMailOS(int*, int*, char, int);
-         // Flag
-void          postFlagOS(int, unsigned int, char);
-int           pendFlagOS(int*, unsigned int, char, int);
-char          checkPublicFlagBitOS(int, char);
-unsigned int  queryPublicFlagOS(int);
+void          postSemOS(int number);
+int           pendSemOS(int *array, int timeout);
          // Mutex
 void          postMutexOS(void);
-int           pendMutexOS(int*, int);
+int           pendMutexOS(int *array, int timeout);
+         // Mail Message
+void          postMailOS(int number, void *messageAddr);
+void*         readMailOS(int number, char clear);
+void*         pendMailOS(int *array, int *readyNumberAddr, char clear, int timeout);
+         // Flag
+void          postFlagOS(int number, unsigned int modifyPublicFlag, char setOrClear );
+int           pendFlagOS(int *array, unsigned int privateFlag, char allOrAny, int timeout);
+char          checkPublicFlagBitOS(int flagNumber, char bitNumber);
+unsigned int  queryPublicFlagOS(int flagNumber);
          // Memory Management
-void*         getMemoryOS(int, int);
-void*         getMemoryWithPutOS(int, int);
-void*         margeAddressOS(void*);
-void*         dangerAddressOS(void*, int*);
-void          putMemoryOS(int); 
-void*         mallocOS(int);
-void          freeOS(void*);
+void*         getMemoryOS(int getNo, int bytes);
+void*         getMemoryWithPutOS(int getNo, int bytes);
+void*         margeAddressOS(void* relyAddress);
+void*         dangerAddressOS(void* relyAddress, int *dangerBytes);
+void          putMemoryOS(int getNo); 
+void*         mallocOS(int bytes);
+void          freeOS(void* ptr);
 int           maxFreeMemoryOS(void);
 int           minFreeMemoryOS(void);
-int           queryFreeBulkNoOS(char*, int);
+int           queryFreeBulkNoOS(char* result, int length);
 int           leakMemoryNoOS(void);
 int           lackMemoryNoOS(void);
 int*          leakMemoryNoAllOS(void);
 int*          lackMemoryNoAllOS(void);
          // Queue
-int           postQOS(int, void*);
-void*         pendQOS(int*, int*, int*, int);
-int           qReadyNumberOS(void*);
-int           queryRemainItemsOS(int);
-void          qRxIntFloatOS(int, void*);
-void          qTxIntFloatOS(int, void*, int, char);
-int           packetLengthOS(int);
-void          qTxRealtimeOS(int, void*);
-void*         qRxRealtimePendOS(int);
+int           postQOS(int number, void *messageAddr);
+void*         pendQOS(int *array, int* readyNo, int* items, int timeout);
+int           qReadyNumberOS(void* retrieveAddress);
+int           queryRemainItemsOS(int number);
+void          qRxIntFloatOS(int qNo, void* pData);
+void          qTxIntFloatOS(int qNo, void* pData, int length, char power);
+int           packetLengthOS(int qNo);
+void          qTxRealtimeOS(int number, void *messageAddr);
+void*         qRxRealtimePendOS(int number);
          // Task Loading
 int*          relativeTaskLoadOS(void);
 int           idleTaskLoadOS(void);
          // Low Power Mode
 unsigned int  matchRegisterOS(void);	
-
+unsigned int  divisorOS(void);
 
 	
 	

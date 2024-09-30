@@ -30,6 +30,7 @@
 
            // select OS tick
 #define  CLOCKOS          OSCLOCK_100mS
+#define  BULKBYTES        sizeof(long double)
 
 #if   defined ( ARM )     
   #define  WORDSIZE    4

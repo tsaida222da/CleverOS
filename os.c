@@ -3,7 +3,6 @@
 #include "OS.h"
 
 #define  TABLELENGTH      ( ( TASKSIZE + 1 ) / 33   + 1 )
-#define  BULKBYTES          sizeof(long double)
 #define  QBYTES             BULKBYTES
 #define  QLENGTH          ( (QBYTES + BULKBYTES) / sizeof(void*) )
 #define  QMEMORY            QSIZE*QLENGTH*sizeof(void*)
@@ -1758,11 +1757,11 @@ char checkPublicFlagBitOS(int flagNumber, char bitNumber)
 
 
 
-long double* memoryAddressOS(int bulkNo)
+void* memoryAddressOS(int bulkNo)
 {
-    long double *bulkAddress;		
+    void* bulkAddress;		
 	
-		bulkAddress = (long double *)((unsigned int)PoolOS + (unsigned int)(bulkNo * BULKBYTES) );
+		bulkAddress = (void*)((unsigned int)PoolOS + (unsigned int)(bulkNo * BULKBYTES) );
 
 	  return bulkAddress;
 }

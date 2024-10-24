@@ -82,13 +82,11 @@ unsigned int  FlagAllOrAnyOS[TABLELENGTH];  // bit value 1 means private flag mu
 long double   PoolOS[GLOBALBULKLENGTH];
 unsigned int  FreeBulkNoOS[FREEBULKLENGTH];
 int           StartBulkNoOS[GETMEMORYSIZE];  
-int           DangerBytesOS[GETMEMORYSIZE];
 char          LeakNoOS[GETMEMORYSIZE];
 char          LackNoOS[GETMEMORYSIZE];
 int           LeakNoAllOS[GETMEMORYSIZE];
 int           LackNoAllOS[GETMEMORYSIZE];
-void*         RelyMargeDangerOS[GETMEMORYSIZE][2];
-void*         MallocAddressOS;
+void*         MemoryFreeAddressOS;
 
 int*          DelayUntilOS[UNTILSIZE][2];       // conditional delay
 int           DelayUntilPriorityOS[UNTILSIZE];  // priority value
@@ -108,22 +106,22 @@ unsigned int  MinDelayTickOS;
 /*                        Kernel                                 */
 /*****************************************************************/
 
-void* mallocOS(int);                  // called by initializeEventOS()
-void  assignPaddingSpOS(void);        // called by initializeTaskOS()
-void  setTableOS(unsigned int*, int); // called by initializeTaskOS()
-void  idleTaskOS(void);               // used   by initializeTaskOS()
-char  checkResidueOS(int);            // called by schedulerOS()
-void  checkSafeLevelOS(void);         // called by schedulerOS()
-void  minDelayTickOS(void);           // called by schedulerOS()
-char  checkDelayUntilOS(void);        // called by SysTick_Handler()
-void  nonBlockingTransferOS(void);    // called by SysTick_Handler()
-void  delayTickOS(int);               // called by deleteSelfOS()
+void* mallocOS(int);                    // called by initializeEventOS()
+void  assignPaddingSpOS(void);          // called by initializeTaskOS()
+void  setTableOS(unsigned int*, int);   // called by initializeTaskOS()
+void  idleTaskOS(void);                 // used   by initializeTaskOS()
+char  checkResidueOS(int);              // called by schedulerOS()
+void  checkSafeLevelOS(void);           // called by schedulerOS()
+void  minDelayTickOS(void);             // called by schedulerOS()
+char  checkDelayUntilOS(void);          // called by SysTick_Handler()
+void  nonBlockingValueTransferOS(void); // called by SysTick_Handler()
+void  delayTickOS(int);                 // called by deleteSelfOS()
 	
 #if   defined  CM0 
 
 void initializeSysTickOS(void)
 {
-	  SystickLoadRegisterOS = (unsigned int)CLOCKOS -1;
+	  SystickLoadRegisterOS = (unsigned int)TICK - 1;
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable, interrupt, system cpu clock
 }
@@ -250,19 +248,19 @@ void currentExecuteClockOS(void)
 		}
 		else
 		{                 
-			  clockValue = (int)CLOCKOS - TaskClockOS[CurrentPriorityOS][1] + TaskClockOS[CurrentPriorityOS][0];
+			  clockValue = (int)TICK - TaskClockOS[CurrentPriorityOS][1] + TaskClockOS[CurrentPriorityOS][0];
 		}		
 
 		clockDifference = clockValue;
 		
 		if (  SystemTickOS > 0 )
 		{
-		    clockDifference = (SystemTickOS - 1) * (int)CLOCKOS + clockValue;			
+		    clockDifference = (SystemTickOS - 1) * (int)TICK + clockValue;			
 		}
 		         // DISABLE_INTERRUPT
 		else if ( (SystemTickOS == 0) && (TaskClockOS[CurrentPriorityOS][1] >= TaskClockOS[CurrentPriorityOS][0]) )
 		{
-			  clockDifference = (int)CLOCKOS  - TaskClockOS[CurrentPriorityOS][1] + TaskClockOS[CurrentPriorityOS][0];	
+			  clockDifference = (int)TICK  - TaskClockOS[CurrentPriorityOS][1] + TaskClockOS[CurrentPriorityOS][0];	
 		}
 
 	 DISABLE_INTERRUPT;
@@ -476,10 +474,7 @@ void initializeEventOS(void)
 			   LackNoOS[i] = 0;
 			   LeakNoOS[i] = 0;		
          LackNoAllOS[i] = 0;
-         LeakNoAllOS[i] = 0;			 
-				 DangerBytesOS[i] = 0;
-				 RelyMargeDangerOS[i][0] = (void*)0x0;  // relyAddress
-				 RelyMargeDangerOS[i][1] = (void*)0x0;  // marginAddress				 
+         LeakNoAllOS[i] = 0;			 			 
 			  ENABLE_INTERRUPT; 
 		 }
 		 	 
@@ -609,9 +604,14 @@ char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(v
 			    errorCode = 3;  				
 		  }
 			
-			if ( (lowPowerTimer != NULL) && ((int)PADDINGIDLE < 2) )
+			if ( (lowPowerTimer != NULL) && (PADDINGIDLE < 2) )
 			{
 			    errorCode = 4;  
+			}
+
+			if ( (QSIZE>0) && (QLENGTH < 1) )
+			{
+			    errorCode = 5;  
 			}
 			
 	    return errorCode;
@@ -622,7 +622,7 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 { 
 	  char         errorCode;
 	  unsigned int topStackPointer;
-	  unsigned int OSclock = CLOCKOS;
+	  unsigned int OSclock = TICK;
 	
 		errorCode = checkStartErrorOS(arraySize, startPriority, lowPowerTimer);
 
@@ -798,7 +798,7 @@ void SysTick_Handler(void)
 	   SystemTickOS++;
 		ENABLE_INTERRUPT;
 
-     nonBlockingTransferOS();
+     nonBlockingValueTransferOS();
 	
      for( i=0; i< TASKSIZE; i++ )   // i is task's priority value
      {
@@ -1768,14 +1768,12 @@ void* memoryAddressOS(int bulkNo)
 
 
 
-int optimalFreeMemoryOS(int desiredBulkLength, int* minOptimum)
+int findFreeMemoryOS(int desiredBulkLength)
 {
 		int  i;
 		int  length1;    // continue free bulk
-    int  optimalNo = -1;
+    int  margeNo = -1;
 		char setBit;
-
-		*minOptimum = 0x7FFFFFFF;
 	
 		if ( (GLOBALBULKLENGTH > 1) && (desiredBulkLength < GLOBALBULKLENGTH) )
 		{
@@ -1787,7 +1785,7 @@ int optimalFreeMemoryOS(int desiredBulkLength, int* minOptimum)
 						   length1 = 1;
 					     setBit = checkSetBitOS(FreeBulkNoOS, i+1); // find continuous free bulk
 							 
-	             while( setBit && (i+length1 < GLOBALBULKLENGTH) )
+	             while( setBit && (i+length1 < GLOBALBULKLENGTH) && (length1 <= desiredBulkLength + 1) )
 		           {
 			             length1++;
 						       if( i+length1 < GLOBALBULKLENGTH )
@@ -1796,48 +1794,37 @@ int optimalFreeMemoryOS(int desiredBulkLength, int* minOptimum)
                    }										
 		           } 
  
-							 if( (length1 == *minOptimum) && (i > 0) )
-							 { 
-								     optimalNo = i;							 
-							 }
-			         else if( (length1 > desiredBulkLength) && (length1 < *minOptimum) )
+               if( (length1 > desiredBulkLength+1) || ( (i==0) && (length1 == desiredBulkLength+1) ) )
 			         { 
-				           *minOptimum = length1;
-							     optimalNo = i;
+							     margeNo = i;
+								   break;
 			         }
 
 							 i += length1+1;				 
-				    } 
-				    else
-				    {
+				   } 
+				   else
+				   {
 					     i++;
-				    } // if( checkSetBitOS
+				   } // if( checkSetBitOS
 						
-		   }	// while
+		    }	// while
 		 } // if ( GLOBALBULKLENGTH > 1 )
 		 else if ( (desiredBulkLength < 2) && checkSetBitOS(FreeBulkNoOS, 0) )
 		 {
-			  *minOptimum = 1;
-			   optimalNo = 0;
+			   margeNo = 0;
 		 }
 
-	   return  optimalNo;
+	   return  margeNo;
 }
 
 
 void memoryOS(int getNo, int bytes)
 {
-	  int  r;           // bulk number in available memory
+	  int  i;           // bulk number in available memory
  	  int  margeNo;     // marge bulk number
-	  int  length1;     // free bulk length + 1(marge bulk)
 	  int  desiredBulkLength;
 	  int  frontBulkNo;
 	  int  rearBulkNo;
-
-	  if ( getNo >= 0 )
-		{
-	     RelyMargeDangerOS[getNo][0] = 0x0;
-		}
 
 		if( (bytes > 0) && (getNo < GETMEMORYSIZE) && (getNo >= (int)MALLOC) )
 		{
@@ -1846,7 +1833,7 @@ void memoryOS(int getNo, int bytes)
 		   {
 			    desiredBulkLength = 1;
 		   }
-       margeNo = optimalFreeMemoryOS(desiredBulkLength, &length1);
+       margeNo = findFreeMemoryOS(desiredBulkLength);
 	
 			 if ( margeNo >= 0 )
 		   {	 
@@ -1860,9 +1847,9 @@ void memoryOS(int getNo, int bytes)
 
 						rearBulkNo = margeNo<1 ? desiredBulkLength-1 : margeNo + desiredBulkLength;				
 
-				 	  for(r= frontBulkNo; r<= rearBulkNo; r++ ) //  FreeBulkNoOS[margeNo] = 1
+				 	  for(i= frontBulkNo; i<= rearBulkNo; i++ ) //  FreeBulkNoOS[margeNo] = 1
 				    {
-			         clearTableOS(FreeBulkNoOS, r);			// using
+			         clearTableOS(FreeBulkNoOS, i);			// using
 				    }
 						
 	 	      DISABLE_INTERRUPT;						
@@ -1870,14 +1857,11 @@ void memoryOS(int getNo, int bytes)
 				  	{  
 							 StartBulkNoOS[getNo] = frontBulkNo;
 							                // RelyMargeDangerOS[][]
-				       RelyMargeDangerOS[getNo][0] = memoryAddressOS(frontBulkNo);   // relyAddress	
-					     RelyMargeDangerOS[getNo][1] = memoryAddressOS(rearBulkNo+1);		// margeAddress			
-                              // DangerBytesOS[]
-			         DangerBytesOS[getNo] = ( length1 - (rearBulkNo - frontBulkNo) - 2) * BULKBYTES;	
+				       MemoryFreeAddressOS = memoryAddressOS(frontBulkNo);   // relyAddress		
 				   }
 				   else if( getNo == (int)MALLOC )
 				   {
-					     MallocAddressOS = memoryAddressOS(frontBulkNo);
+					    MemoryFreeAddressOS = memoryAddressOS(frontBulkNo);
 				   }
 				 ENABLE_INTERRUPT; 
 		   } 
@@ -1895,7 +1879,7 @@ void memoryOS(int getNo, int bytes)
 
 void* getMemoryOS(int getNo, int bytes)
 {
-		 RelyMargeDangerOS[getNo][0] = 0x0;
+	   MemoryFreeAddressOS = 0x0;
 	
 		 if( (getNo >= 0) && (getNo < GETMEMORYSIZE) )
 		 { 
@@ -1912,16 +1896,16 @@ void* getMemoryOS(int getNo, int bytes)
 		    }
 	   }
 
-		 return  RelyMargeDangerOS[getNo][0];
+		 return  MemoryFreeAddressOS;
 }
 
 
 void* mallocOS(int bytes)
 {		
-	  MallocAddressOS = 0x0;
+	  MemoryFreeAddressOS = 0x0;
 	  memoryOS(MALLOC, bytes);
 
-		return  MallocAddressOS;
+		return  MemoryFreeAddressOS;
 }
 
 
@@ -1945,12 +1929,7 @@ void putMemoryOS(int getNo)
 			          {
 					          setBit = checkSetBitOS(FreeBulkNoOS, k);
 			 	            if ( setBit  ) // k is margeBulkNo
-					          {
-									    DISABLE_INTERRUPT;
-						           DangerBytesOS[getNo] = 0;
-						           RelyMargeDangerOS[getNo][0] = (void*)0x0;
-						           RelyMargeDangerOS[getNo][1] = (void*)0x0;					
-						          ENABLE_INTERRUPT;								
+					          {							
            	           break;									
 					          }
 											
@@ -2001,11 +1980,9 @@ void freeOS(void* ptr)
 
 void* getMemoryWithPutOS(int getNo, int bytes)
 {		
-	   putMemoryOS(getNo);	
+	  putMemoryOS(getNo);	
 
-	   getMemoryOS(getNo, bytes);
-
-		 return  RelyMargeDangerOS[getNo][0];
+		return  getMemoryOS(getNo, bytes);
 }
 
 
@@ -2035,139 +2012,6 @@ int queryFreeBulkNoOS(char* result, int length)
 	 }
 	 
 	 return GLOBALBULKLENGTH;
-}
-
-
-
-int getMemoryNoOS(void* relyAddress)
-{
-	  int i;
-    int frontBulkNo;		
-	  int getNo= -1;
-	
-		frontBulkNo = ( (int)relyAddress - (int)PoolOS ) / (int)BULKBYTES;
-
-	  for(i=0; i<GETMEMORYSIZE; i++)
-		{
-       if ( frontBulkNo == StartBulkNoOS[i] )
-			 {
-				   getNo = i;
-			 }
-		}			
-	
-	   return getNo;
-}
-
-
-void* margeAddressOS(void* relyAddress)
-{		
-	  int   getNo;
-	  void* margeAddress = 0x0;
-	
-	  getNo = getMemoryNoOS(relyAddress);
-	
-	  if( getNo >= 0 )
-		{
-			  margeAddress = RelyMargeDangerOS[getNo][1];
-		}
-	
-		return  margeAddress;
-}
-
-
-void* dangerAddressOS(void* relyAddress, int *dangerBytes)
-{		
-	  int   getNo;
-	  void* dangerAddress = 0x0;
-	
-	  getNo = getMemoryNoOS(relyAddress);
-	  *dangerBytes = 0;
-	
-	  if( getNo >= 0 )
-		{
-				dangerAddress = (void*)( (unsigned int)RelyMargeDangerOS[getNo][1] + (unsigned int)BULKBYTES );
-	      *dangerBytes = DangerBytesOS[getNo];
-		}
-
-		return  dangerAddress;
-}
-
-
-int minMaxFreeMemoryOS(char minMax)
-{
-		int  i;
-		int  continueByte;
-		int  length1;    // continue free bulk
-		int  minimum = 0x7FFFFFFF;
-	  int  maximum = -1;
-		char setBit;
-	
-	  i = 0;
-    while( i < GLOBALBULKLENGTH-2 )
-		{
-		    if( checkSetBitOS(FreeBulkNoOS, i) )
-		    { 
-						length1 = 1;
-					  setBit = checkSetBitOS(FreeBulkNoOS, i+1); // find continuous free bulk
-							 
-	          while( (i+length1 < GLOBALBULKLENGTH) && setBit )
-		        {
-			          length1++;
-						    if( i+length1 < GLOBALBULKLENGTH )
-							  {
-					          setBit = checkSetBitOS(FreeBulkNoOS, i+length1);	// check continuous free bulk	
-                }										
-		        } 					 
-
-			      if( (length1 > maximum) && (length1 > 2) )
-			      {
-				        maximum =  length1;
-							
-								if ( i == 0 )
-						    {
-							     maximum++;
-						    }
-			      }
-						
-			      if( (length1 < minimum) && (length1 > 2) )
-			      {
-				        minimum = length1;
-							
-								if ( i == 0 )
-						    {
-							     minimum++;
-						    }
-			      }
-						
-						i += length1+1;
-				 } 
-				else
-				{
-					  i++;
-				} // if( checkSetBitOS
-						
-		}	// while
-
-		 continueByte = minMax ? BULKBYTES*(maximum-2) : BULKBYTES*(minimum-2);
-
-		 if( (minimum > GLOBALBULKLENGTH) && (maximum < 0) )         
-     {
-          continueByte = 0;
-     }
-
-	   return  continueByte;
-}
-
-
-int maxFreeMemoryOS(void)
-{
-	  return  minMaxFreeMemoryOS(1);
-}
-
-
-int minFreeMemoryOS(void)
-{
-	  return  minMaxFreeMemoryOS(0);
 }
 
 
@@ -2207,13 +2051,13 @@ int lackMemoryNoOS(void)
 }
 
 
-int* leakMemoryNoAllOS(void)
+int* leakAllOS(void)
 {
 	  return LeakNoAllOS;
 }
 
 
-int* lackMemoryNoAllOS(void)
+int* lackAllOS(void)
 {
 	  return LackNoAllOS;
 }
@@ -2474,8 +2318,9 @@ int queryRemainItemsOS(int number)
    return QLENGTH - QBodyOS[number].items;
 }
 
+       // value communication
 
-void qTxIntFloatOS(int qNo, void* pData, int length, char power)
+void qTxValueOS(int qNo, void* pData, int length, char power)
 {
 	DISABLE_INTERRUPT;
 	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeTx) && (length > 0) )
@@ -2560,7 +2405,7 @@ void qTxOS(void)
 }
 
 	 
-void qRxIntFloatOS(int qNo, void* pData)
+void qRxValueOS(int qNo, void* pData)
 {
 	DISABLE_INTERRUPT;	
 	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeRx) )
@@ -2637,7 +2482,7 @@ int packetLengthOS(int qNo)
 }
 
 
-void nonBlockingTransferOS(void)
+void nonBlockingValueTransferOS(void)
 {
 		 if ( FlagTxRxOS )
 		 {

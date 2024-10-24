@@ -2,7 +2,7 @@
 #include "PORT.h"
 
 #if   defined ( CM0 )
-	 #define  ASSERTOS(x) if( !(x) ){ __asm( "cpsid i		\n" ); for(;;); }
+	 #define  ASSERT(x) if( !(x) ){ __asm( "cpsid i		\n" ); for(;;); }
 	 #define  DISABLE_INTERRUPT  __asm( "cpsid i		\n" );
    #define  ENABLE_INTERRUPT   __asm( "cpsie i		\n" );
 	 #define  CPUREGISTER         17
@@ -29,8 +29,7 @@
 #define  OSCLOCK_1M       1000000
 
            // select OS tick
-#define  CLOCKOS          OSCLOCK_100mS
-#define  BULKBYTES        sizeof(long double)
+#define  TICK              OSCLOCK_100mS
 
 #if   defined ( ARM )     
   #define  WORDSIZE    4
@@ -113,25 +112,21 @@ unsigned int  queryPublicFlagOS(int flagNumber);
          // Memory Management
 void*         getMemoryOS(int getNo, int bytes);
 void*         getMemoryWithPutOS(int getNo, int bytes);
-void*         margeAddressOS(void* relyAddress);
-void*         dangerAddressOS(void* relyAddress, int *dangerBytes);
 void          putMemoryOS(int getNo); 
 void*         mallocOS(int bytes);
 void          freeOS(void* ptr);
-int           maxFreeMemoryOS(void);
-int           minFreeMemoryOS(void);
 int           queryFreeBulkNoOS(char* result, int length);
 int           leakMemoryNoOS(void);
 int           lackMemoryNoOS(void);
-int*          leakMemoryNoAllOS(void);
-int*          lackMemoryNoAllOS(void);
+int*          leakAllOS(void);
+int*          lackAllOS(void);
          // Queue
 int           postQOS(int number, void *messageAddr);
 void*         pendQOS(int *array, int* readyNo, int* items, int timeout);
 int           qReadyNumberOS(void* retrieveAddress);
 int           queryRemainItemsOS(int number);
-void          qRxIntFloatOS(int qNo, void* pData);
-void          qTxIntFloatOS(int qNo, void* pData, int length, char power);
+void          qRxValueOS(int qNo, void* pData);
+void          qTxValueOS(int qNo, void* pData, int length, char power);
 int           packetLengthOS(int qNo);
 void          qTxRealtimeOS(int number, void *messageAddr);
 void*         qRxRealtimePendOS(int number);

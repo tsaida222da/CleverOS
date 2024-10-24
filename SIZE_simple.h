@@ -18,4 +18,4 @@
     // padding part of task stack(selective)
 int PaddingOS[TASKSIZE+1] = {0};  
 #define  PADDINGIDLE       0      // idleTaskOS() padding
-
+#define  BULKBYTES        sizeof(long double)

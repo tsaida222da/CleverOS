@@ -15,6 +15,7 @@ extern int  findLeastBitOS(unsigned int);
 extern int  interruptNumberOS(void);
 extern void setPSPOS(unsigned int);
 extern void setCONTROLOS(unsigned int);
+extern unsigned int returnPSPOS(void);
 
 typedef struct
 {
@@ -23,7 +24,6 @@ typedef struct
    int     outIndex;
 	 int     items;
 }qbodyOS;	
-
 
 typedef struct
 {
@@ -38,7 +38,6 @@ typedef struct
 	 char   completeTx;
 }qtxrxOS;
 
-
 typedef struct
 {
    int           priority;         // pending task
@@ -47,6 +46,11 @@ typedef struct
    char          eventType;	
 	 unsigned int  privateFlag;      // flag
 } eventOS;
+
+typedef struct
+{
+   char a[BULKBYTES];
+}bulkTypeOS;
 
 void          (*overflowHandlerOS)(int);
 void          (*lowPowerTimerOS)(void);
@@ -79,7 +83,7 @@ int           MutexOwnerOS[MUTEXSIZE];   // priority value of mutex owner
 unsigned int  PublicFlagOS[FLAGSIZE];
 unsigned int  FlagAllOrAnyOS[TABLELENGTH];  // bit value 1 means private flag must match all the bits required, bit value 0 means private flag could match only one bit, priority value is bit index
 
-long double   PoolOS[GLOBALBULKLENGTH];
+bulkTypeOS    PoolOS[GLOBALBULKLENGTH];
 unsigned int  FreeBulkNoOS[FREEBULKLENGTH];
 int           StartBulkNoOS[GETMEMORYSIZE];  
 char          LeakNoOS[GETMEMORYSIZE];
@@ -110,8 +114,6 @@ void* mallocOS(int);                    // called by initializeEventOS()
 void  assignPaddingSpOS(void);          // called by initializeTaskOS()
 void  setTableOS(unsigned int*, int);   // called by initializeTaskOS()
 void  idleTaskOS(void);                 // used   by initializeTaskOS()
-char  checkResidueOS(int);              // called by schedulerOS()
-void  checkSafeLevelOS(void);           // called by schedulerOS()
 void  minDelayTickOS(void);             // called by schedulerOS()
 char  checkDelayUntilOS(void);          // called by SysTick_Handler()
 void  nonBlockingValueTransferOS(void); // called by SysTick_Handler()
@@ -169,7 +171,7 @@ void initializeTaskOS( void (*taskName[])(void) )
 					 
 			  for( k=0; k<PaddingOS[i]; k++ )
         {
-            *(spAddr + 1 + k) = 0xf000000f;        // pack[i]
+            *(spAddr + 1 + k) = IDLEITEM;        // pack[i]
         }	
 				
 				if ( i != (int)TASKSIZE )
@@ -340,11 +342,11 @@ void schedulerOS(void)
 						if ( checkSetBitOS(DangerStackOS, highestPriority) > 0 )
 						{ 
 							  danger = 1;
-							  clearTableOS(ReadyTableOS, highestPriority);										
-								clearTableOS(PriorityOwnEventOS, highestPriority);
 							 DISABLE_INTERRUPT;	
-	              WaitTickOS[highestPriority] = ISOLATEOS;
-	             ENABLE_INTERRUPT;
+	              WaitTickOS[highestPriority] = ISOLATE;
+	             ENABLE_INTERRUPT;	
+		            clearTableOS(PriorityOwnEventOS, highestPriority);	
+	              clearTableOS(ReadyTableOS, highestPriority);
 							
 								if ( overflowHandlerOS != NULL)
 								{
@@ -352,19 +354,14 @@ void schedulerOS(void)
 								}
 						}
 			  } // while  
-                        // task loading and safety
+                        // task loading
 				if( (CurrentPriorityOS != (int)TASKSIZE) && (highestPriority != CurrentPriorityOS) ) 
 			  {					
 						 CountTaskOS[CurrentPriorityOS]++;
-									
-						 if ( CountTaskOS[CurrentPriorityOS] >= COUNTSTARTOS )
-             {							
-						      checkSafeLevelOS();
-						 }
 										
 						 if ( CountTaskOS[CurrentPriorityOS] > 0xefffffff )  
              {
-	                CountTaskOS[CurrentPriorityOS] = COUNTSTARTOS;
+	                CountTaskOS[CurrentPriorityOS] = COUNTSTART;
              }	
 				}
 				          // low power mode
@@ -618,7 +615,7 @@ char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(v
 }
 
 
-char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void), void (*danger)(int))
+char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void) )
 { 
 	  char         errorCode;
 	  unsigned int topStackPointer;
@@ -632,7 +629,6 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 		}
 		
 		lowPowerTimerOS = lowPowerTimer;
-		overflowHandlerOS = danger;
     initializeSysTickOS();
     setHandlerPriorityOS();		
 		initializeEventOS();
@@ -835,7 +831,7 @@ char errorPendSizeOS(void)
 
 void deleteSelfOS(void)
 {
-	  delayTickOS( -1 );
+	  delayTickOS( ISOLATE );
 }
 
 
@@ -855,7 +851,7 @@ int* minimumStackOS(int* minimumRam)
        spAddr = TaskSpPointerOS[i];
 
        k = 0;				
-       while(  *(spAddr + 1 + k) == 0xf000000f  )
+       while(  *(spAddr + 1 + k) == IDLEITEM  )
        {
             k++;
        }
@@ -891,7 +887,7 @@ int autoMinimumStackOS(void)
        spAddr = TaskSpPointerOS[i];
 
        k = 0;				
-       while(  *(spAddr + 1 + k) == 0xf000000f )
+       while(  *(spAddr + 1 + k) == IDLEITEM )
        {
             k++;
        }
@@ -920,7 +916,7 @@ void currentResidueOS(void)
 {
     int k = 0;
 	
-    while(  *(TaskSpPointerOS[CurrentPriorityOS] + 1 + k) == 0xf000000f  )
+    while(  *(TaskSpPointerOS[CurrentPriorityOS] + 1 + k) == IDLEITEM  )
     { 
          k++;
     }
@@ -985,8 +981,45 @@ char dangerSafeOS(int level)
 }
 
 
-void checkStackSafetyOS(int startCount, int level)
+unsigned int* irregularIdleDataOS(int *number) 
 {
+		unsigned int*  highAddress = 0x0;
+    int  k;
+	  unsigned int  *spAddr;
+	  unsigned int* idleAddress[2] = {0, 0};
+	
+		*number = 0;
+    spAddr = TaskSpPointerOS[CurrentPriorityOS];
+ 
+	  if(  (*(spAddr + 1) == (unsigned int)IDLEITEM) || (*((unsigned int*)*spAddr -1) == (unsigned int)IDLEITEM)  )
+		{
+		   k = 1;				
+       while(  *(spAddr + 1 + k) == (unsigned int)IDLEITEM  )
+       {
+          k++;
+       }
+		   idleAddress[0] = (unsigned int*)(spAddr + k);
+		
+		   k = 0;
+		   while (  ( ( (unsigned int)*((unsigned int*)*spAddr -1 - k) == (unsigned int)IDLEITEM) ) && ( (unsigned int)((unsigned int*)*spAddr -1 - k) > (unsigned int)idleAddress[0] ) )
+		   {
+			    k++;
+		   }
+		   idleAddress[1] = (unsigned int*)( (unsigned int*)*spAddr -1 - k );
+
+		   if ( (unsigned int)idleAddress[0] != (unsigned int)idleAddress[1] )
+		   {
+			    highAddress = idleAddress[1];
+				  *number = ( ( (unsigned int)idleAddress[1] - (unsigned int)idleAddress[0] ) / sizeof(unsigned int) );
+		   }
+	  }
+		
+		return highAddress;		
+}
+
+
+void checkSafetyLevelOS(int level, void (*handler)(int))
+{	
 	  if ( level < 1 )
 		{
 			  level = 1;
@@ -996,25 +1029,15 @@ void checkStackSafetyOS(int startCount, int level)
 	      level = MAXLEVEL;
 		}
 		
-		if ( (CountTaskOS[CurrentPriorityOS] >= startCount) && dangerSafeOS(level) )
+		if ( (CountTaskOS[CurrentPriorityOS] >= COUNTSTART) && dangerSafeOS(level)  )
 		{
-			  setTableOS(DangerStackOS, CurrentPriorityOS);  // for schedulerOS()
-		}
-}
-
-
-void checkSafeLevelOS(void)
-{
-	  int  i;
-	
-	  for ( i=MAXLEVEL; i > 0 ; i-- )
-		{
-		    if ( (i < SafeLevelOS[CurrentPriorityOS]) && dangerSafeOS(i) )
-		    {
-					 DISABLE_INTERRUPT;
-				    SafeLevelOS[CurrentPriorityOS] = i;
-					 ENABLE_INTERRUPT;	
-			  }
+        setTableOS(DangerStackOS, CurrentPriorityOS);
+			  
+			 DISABLE_INTERRUPT;
+	      overflowHandlerOS = handler;
+		   ENABLE_INTERRUPT;
+			
+        schedulerOS();
 		}
 }
 
@@ -1027,22 +1050,61 @@ int queryResidueStackOS(void)
 }
 
 
-char queryDangerTaskOS(void)
+char querySafetyLevelOS(int executedCount)
 {
-		return checkSetBitOS(DangerStackOS, CurrentPriorityOS);
+	  char level = MAXLEVEL + 4;
+	  int  i;
+	
+	  if ( executedCount > COUNTSTART )
+		{
+	     for ( i=MAXLEVEL; i > 0 ; i-- )
+		   {
+		       if ( (i < SafeLevelOS[CurrentPriorityOS]) && dangerSafeOS(i) )
+		       {
+					    DISABLE_INTERRUPT;
+				       SafeLevelOS[CurrentPriorityOS] = i;
+					    ENABLE_INTERRUPT;	
+			     }
+		   }
+
+       level = SafeLevelOS[CurrentPriorityOS];			 
+		}
+		 
+		return  level;
 }
 
 
-char querySafeLevelOS(int count)
+int localVariableRegionOS(unsigned int *context, int maxLength)
 {
-	  char level = MAXLEVEL + 4;
+	  int i;
+	  int present;
+	  int count = 0;
+	  unsigned int *high;
+	  unsigned int *low;
+	  unsigned int PSP;	
 	
-	   if ( count > COUNTSTARTOS )
+	   high = TaskSpPointerOS[CurrentPriorityOS + 1];
+		 low = (unsigned int *)*TaskSpPointerOS[CurrentPriorityOS];
+	   PSP = returnPSPOS();
+
+		 i = 0;
+		 while ( (*(high -1 -i) != (unsigned int)IDLEITEM) && (count < maxLength) && ((unsigned int)(high -1 -i)>PSP) )
 		 {
-				 level = SafeLevelOS[CurrentPriorityOS];
-		 }
-		 
-		 return  level;
+		 	    *(context + i) = *(high -1 -i);
+			    count++;
+				  i++;
+			}
+	    present = i;
+	
+			i = 0;
+		  while ( (*(low -1 -i) != (unsigned int)IDLEITEM) && (count < maxLength) )
+		  {
+		 	    *(context + present + i) = *(low -1 -i);
+			    count++;
+				  i++;
+			}
+			
+			return  count;
 }
 
 
@@ -1116,7 +1178,7 @@ void delayUntilEqualOS(int *a, int *b)
        	      k++;
 		      }
 	     	
-          pauseTaskOS(INFINITEOS);		 
+          pauseTaskOS(INFINITE);		 
        }
 
        schedulerOS();	
@@ -1149,7 +1211,7 @@ void delayUntilTrueOS(int *a)
        	       k++;
 		       }
 	     	
-           pauseTaskOS(INFINITEOS);		 
+           pauseTaskOS(INFINITE);		 
        }
 
        schedulerOS();	
@@ -1214,7 +1276,7 @@ void postSemOS(int number)
 							 {
 				           priority =  EventNumberTaskOS[i].priority;	
 
-								   if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
+								   if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
 							     {  
 								       array = EventNumberTaskOS[i].numberArray;
  								       previousValue = -999;
@@ -1329,7 +1391,7 @@ void postMailOS(int number, void *messageAddr)
 							 {
 				           priority =  EventNumberTaskOS[i].priority;	
 
-						       if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
+						       if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
 							     {
 								       array = EventNumberTaskOS[i].numberArray;
  								       previousValue = -999;
@@ -1477,7 +1539,7 @@ void postMutexOS(void)
 							     {
 				               priority =  EventNumberTaskOS[i].priority;	
 
-						           if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
+						           if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
 							         {
 							             array = EventNumberTaskOS[i].numberArray;   
  
@@ -1620,7 +1682,7 @@ void postFlagOS(int number, unsigned int modifyPublicFlag, char setOrClear )
 							 {	 
 								  priority = EventNumberTaskOS[i].priority;
 
-								  if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
+								  if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
 							    {
 								     array = EventNumberTaskOS[i].numberArray;
  								     previousValue = -999;
@@ -2101,7 +2163,7 @@ int postQOS(int number, void *messageAddr)
 							 {
 				          priority = EventNumberTaskOS[i].priority;	
 								 
-						      if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITEOS) )
+						      if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
 					        {
 							       array = EventNumberTaskOS[i].numberArray;
 	 							     previousValue = -999;
@@ -2306,7 +2368,7 @@ void qTxRealtimeOS(int number, void *messageAddr)
 
 void* qRxRealtimePendOS(int number)
 {
-	  pendQOS(&number, NULL, NULL, INFINITEOS);;
+	  pendQOS(&number, NULL, NULL, INFINITE);;
 	
 	  return  qRetrieveOS[number][0];
 }

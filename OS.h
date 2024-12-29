@@ -41,14 +41,14 @@
   #define HandlerPriorityRegisterOS      ( *( ( volatile unsigned int* ) 0xE000ED20 ) )  //SHPR3
 #endif
 
-           // check safety
-#define  COUNTSTARTOS      5
+           // stack safety
+#define  IDLEITEM          0xf000000f
+#define  COUNTSTART        5
 #define  MAXLEVEL          5
-#define  NULL              0x0
-
+	
            // timeout infinite
-#define  INFINITEOS       -1
-#define  ISOLATEOS        -2
+#define  INFINITE         -1
+#define  ISOLATE          -2
 
            // event
 #define  SEM               0
@@ -56,6 +56,9 @@
 #define  FLAG              2
 #define  QUEUE             3
 #define  MUTEX             4
+	
+#define  NULL              0x0
+
             // used in pendMailOS()
 #define  NOTCLEARMAIL      0
 #define  CLEARMAIL         1
@@ -73,7 +76,7 @@
 /*****************************************************************/
 
          // Kernel
-char          startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void), void (*danger)(int));
+char          startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void));
 unsigned int* queryReadyTableOS(void);
 int           nonBlockingCallbackOS(int (*)(void));
 void          deleteSelfOS(void);
@@ -85,10 +88,11 @@ int           paddingToRamOS(int totalPadding, int taskSize);
 int           autoPackItemsOS(void);
 int*          minimumStackOS(int* minimumRam);
 int           autoMinimumStackOS(void);
+void          checkSafetyLevelOS(int level, void (*handler)(int));
+int           localVariableRegionOS(unsigned int *context, int maxLength);
+unsigned int* irregularIdleDataOS(int *number);
 int           queryResidueStackOS(void);
-char          queryDangerTaskOS(void);
-void          checkStackSafetyOS(int startCount, int level);
-char          querySafeLevelOS(int count);
+char          querySafetyLevelOS(int executedCount);
          // Delay
 void          delayTickOS(int tick);
 void          delayTimeOS( int hour, int minute, int second, int mS);
@@ -135,7 +139,7 @@ int*          relativeTaskLoadOS(void);
 int           idleTaskLoadOS(void);
          // Low Power Mode
 unsigned int  matchRegisterOS(void);	
-unsigned int  divisorOS(void);
+
 
 	
 	

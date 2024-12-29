@@ -56,6 +56,19 @@ unsigned int setPSPOS(unsigned int top)
    return 0;
 }
 
+
+__attribute__ ((naked, optimize("-fno-stack-protector")))
+unsigned int returnPSPOS(void)
+{
+
+	asm volatile(
+	"	    MRS  R0, PSP  \n"
+	"	    BX   LR \n"
+		);
+   return 0;
+}
+
+
 __attribute__ ((naked, optimize("-fno-stack-protector")))
 void setCONTROLOS(unsigned int usePSP)
 {

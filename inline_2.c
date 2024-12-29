@@ -37,6 +37,14 @@ __asm void setPSPOS(unsigned int topPointer)
 	  BX   LR	
 }
 
+__asm unsigned int returnPSPOS(void)
+{
+	  PRESERVE8
+	  THUMB
+	
+    MRS  R0, PSP
+	  BX   LR	
+}
 
 __asm void setCONTROLOS(unsigned int usePSP)
 {

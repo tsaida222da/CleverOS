@@ -42,6 +42,11 @@ void setPSPOS(unsigned int topPointer)
   );	
 }
 
+__asm unsigned int returnPSPOS(void)
+{	
+              " MRS  R0, PSP \n"
+	  " BX   LR \n"	
+}
 
 void setCONTROLOS(unsigned int usePSP)
 {

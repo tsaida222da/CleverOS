@@ -45,47 +45,6 @@ void sendByte(char data)
 }
 
 
-
-void transfer(unsigned char  p )
-{
-	  unsigned char  x;
-	
-	  if (p < 10) // 0,1 .....9
-	  {
-		  x = p + 48 ;
-	  }
-	  else  // 10, 11,....,15
-	  {
-        x = p + 87;  // a,b,¡K¡K,f
-	  }	
-    sendByte(x);
-}
-
-void print32bits(unsigned  int  y)
-{
-    unsigned char  p;
-
-	  sendByte( '0' );
-	  sendByte( 'x' );	
-	  p = (y & 0xF0000000) >>28;
-    transfer(p);
-	  p = (y & 0x0F000000) >>24;
-    transfer(p);
-	  p = (y & 0x00F00000) >>20;
-    transfer(p);
-	  p = (y & 0x000F0000) >>16;
-    transfer(p);
-    p = (y & 0x0000F000) >>12;
-    transfer(p);
-	  p = (y & 0x00000F00) >>8;
-    transfer(p);
-	  p = (y & 0x000000F0) >>4;
-    transfer(p);
-	  p = (y & 0x0000000F) >>0;
-    transfer(p);
-		sendByte(' ');
-}
-
 int  T1[] = {1, 2};
 int  T2[] = {8, 9};
 

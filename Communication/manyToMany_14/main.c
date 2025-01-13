@@ -86,7 +86,7 @@ void print32bits(unsigned  int  y)
 		sendByte(' ');
 }
 
-int  T1[] = {1,2};
+int  T1[] = {1, 2};
 int  T2[] = {8, 9};
 
 int**  pint;

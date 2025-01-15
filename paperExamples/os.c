@@ -1074,14 +1074,35 @@ char querySafetyLevelOS(int executedCount)
 }
 
 
+
+int cpuRegisterRegionOS(unsigned int *context, int maxLength)
+{
+	   int count;
+	   unsigned int sp;
+	   unsigned int PSP;	
+	
+		 sp = *TaskSpPointerOS[CurrentPriorityOS];
+	   PSP = returnPSPOS();
+	
+		 count = 0;
+		 while ( ( (unsigned int)((unsigned int *)PSP - 1 - count) >= sp) && (count < maxLength) )
+		 {
+		 	    *(context + count) = *( (unsigned int *)PSP - 1 - count );
+				  count++;
+		 }
+
+		 return  count;
+}
+
+
 int localVariableRegionOS(unsigned int *context, int maxLength)
 {
-	  int i;
-	  int present;
-	  int count = 0;
-	  unsigned int *high;
-	  unsigned int *low;
-	  unsigned int PSP;	
+	   int i;
+	   int present;
+	   int count = 0;
+	   unsigned int *high;
+	   unsigned int *low;
+	   unsigned int PSP;	
 	
 	   high = TaskSpPointerOS[CurrentPriorityOS + 1];
 		 low = (unsigned int *)*TaskSpPointerOS[CurrentPriorityOS];
@@ -1093,18 +1114,18 @@ int localVariableRegionOS(unsigned int *context, int maxLength)
 		 	    *(context + i) = *(high -1 -i);
 			    count++;
 				  i++;
-			}
-	    present = i;
+		 }
+	   present = i;
 	
-			i = 0;
-		  while ( (*(low -1 -i) != (unsigned int)IDLEITEM) && (count < maxLength) )
-		  {
+		 i = 0;
+		 while ( (*(low -1 -i) != (unsigned int)IDLEITEM) && (count < maxLength) )
+		 {
 		 	    *(context + present + i) = *(low -1 -i);
 			    count++;
 				  i++;
-			}
+		 }
 			
-			return  count;
+		 return  count;
 }
 
 

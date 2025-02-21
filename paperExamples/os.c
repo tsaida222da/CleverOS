@@ -217,7 +217,7 @@ void clearTableOS(unsigned int* Table, int priority)
 
 
       // return 1 or 0 only
-char checkSetBitOS(unsigned int  *Table, int priority)
+char checkSetBitOS(unsigned int *Table, int priority)
 {
     unsigned int priorityBit = 0x0;
 	  int  index;	
@@ -415,7 +415,6 @@ void idleTaskOS(void)
 				 }					
 		}
 } 
-
 
 
 void initializeEventOS(void)
@@ -773,7 +772,7 @@ unsigned int* queryReadyTableOS(void)
 
 int nonBlockingCallbackOS(int (*callback)(void))
 {
-	  int status = -9;
+	  int status;
 		
 	   DISABLE_INTERRUPT;
 		  status = callback();
@@ -988,7 +987,6 @@ unsigned int* irregularIdleDataOS(int *number)
 	  unsigned int  *spAddr;
 	  unsigned int* idleAddress[2] = {0, 0};
 	
-		*number = 0;
     spAddr = TaskSpPointerOS[CurrentPriorityOS];
  
 	  if(  (*(spAddr + 1) == (unsigned int)IDLEITEM) || (*((unsigned int*)*spAddr -1) == (unsigned int)IDLEITEM)  )
@@ -1007,7 +1005,7 @@ unsigned int* irregularIdleDataOS(int *number)
 		   }
 		   idleAddress[1] = (unsigned int*)( (unsigned int*)*spAddr -1 - k );
 
-		   if ( (unsigned int)idleAddress[0] != (unsigned int)idleAddress[1] )
+		   if ( ( number != NULL) && ((unsigned int)idleAddress[0] != (unsigned int)idleAddress[1] ) )
 		   {
 			    highAddress = idleAddress[1];
 				  *number = ( ( (unsigned int)idleAddress[1] - (unsigned int)idleAddress[0] ) / sizeof(unsigned int) );
@@ -1050,14 +1048,14 @@ int queryResidueStackOS(void)
 }
 
 
-char querySafetyLevelOS(int executedCount)
+char querySafetyLevelOS(void)
 {
-	  char level = MAXLEVEL + 4;
+	  char level;
 	  int  i;
 	
-	  if ( executedCount > COUNTSTART )
+	  if ( CountTaskOS[CurrentPriorityOS] >= COUNTSTART )
 		{
-	     for ( i=MAXLEVEL; i > 0 ; i-- )
+	     for ( i=SafeLevelOS[CurrentPriorityOS]; i > 0 ; i-- )
 		   {
 		       if ( (i < SafeLevelOS[CurrentPriorityOS]) && dangerSafeOS(i) )
 		       {
@@ -1068,6 +1066,10 @@ char querySafetyLevelOS(int executedCount)
 		   }
 
        level = SafeLevelOS[CurrentPriorityOS];			 
+		}
+		else
+		{
+			 level = MAXLEVEL + 4;
 		}
 		 
 		return  level;
@@ -1181,7 +1183,7 @@ void delayUntilEqualOS(int *a, int *b)
 
 		if ( interruptNumberOS() == 0 )
 		{	
-       if ( (a != 0x0) && (b != 0x0) )
+       if ( (a != NULL) && (b != NULL) )
        {
           while( (k<UNTILSIZE) && (!find) )
           {
@@ -1214,7 +1216,7 @@ void delayUntilTrueOS(int *a)
 
 		if ( interruptNumberOS() == 0 )
 		{	
-       if ( a != 0x0 )
+       if ( a != NULL )
        {
            while( (k<UNTILSIZE) && (!find) )
            {
@@ -1853,14 +1855,21 @@ void* memoryAddressOS(int bulkNo)
 
 int findFreeMemoryOS(int desiredBulkLength)
 {
-		int  i;
+	  int  k;
+		int  i = 0;
 		int  length1;    // continue free bulk
     int  margeNo = -1;
 		char setBit;
 	
 		if ( (GLOBALBULKLENGTH > 1) && (desiredBulkLength < GLOBALBULKLENGTH) )
 		{
-       i =0;	 
+			 k =0;
+			 while ( (FreeBulkNoOS[k] == 0) || (FreeBulkNoOS[k] == 0x80000000) )
+			 {
+				 	 i = (FreeBulkNoOS[k] == 0x80000000) ? 8 * sizeof(unsigned int) * (k + 1) - 1 : 8 * sizeof(unsigned int) * (k + 1);
+				   k++;
+			 }
+
        while( i < GLOBALBULKLENGTH-1 )
 		   {
 		       if( checkSetBitOS(FreeBulkNoOS, i) )
@@ -1901,17 +1910,18 @@ int findFreeMemoryOS(int desiredBulkLength)
 }
 
 
-void memoryOS(int getNo, int bytes)
+int memoryOS(int getNo, int bytes)
 {
-	  int  i;           // bulk number in available memory
+	  int  i;           // bulk number of available memory
  	  int  margeNo;     // marge bulk number
 	  int  desiredBulkLength;
 	  int  frontBulkNo;
 	  int  rearBulkNo;
+	  int  realBytes = 0;
 
 		if( (bytes > 0) && (getNo < GETMEMORYSIZE) && (getNo >= (int)MALLOC) )
 		{
-			 desiredBulkLength = bytes%BULKBYTES ? bytes/BULKBYTES+1 : bytes/BULKBYTES ;	
+			 desiredBulkLength = bytes % BULKBYTES ? bytes / BULKBYTES+1 : bytes / BULKBYTES ;	
 	     if( desiredBulkLength == 0 )
 		   {
 			    desiredBulkLength = 1;
@@ -1920,13 +1930,13 @@ void memoryOS(int getNo, int bytes)
 	
 			 if ( margeNo >= 0 )
 		   {	 
-                     //using   not use   using    
+                     //  using   free   using    
                      // 0 0 0 1 1 1 1 1 0 0  FreeBulkNoOS[margeNo]=1
                      //       |     |   |         
 						         //       |     |   margeNo+length1    length1=5, desiredBulkLength=3
                      //  margeNo rearBulkNo
 
-					  frontBulkNo = margeNo<1 ? 0 : margeNo+1;  // if margeNo=0, margeNo is data bulk
+					  frontBulkNo = margeNo<1 ? 0 : margeNo+1;  // if margeNo=0, margeNo is available bulk
 
 						rearBulkNo = margeNo<1 ? desiredBulkLength-1 : margeNo + desiredBulkLength;				
 
@@ -1939,36 +1949,41 @@ void memoryOS(int getNo, int bytes)
 				    if( getNo >= 0 )
 				  	{  
 							 StartBulkNoOS[getNo] = frontBulkNo;
-							                // RelyMargeDangerOS[][]
-				       MemoryFreeAddressOS = memoryAddressOS(frontBulkNo);   // relyAddress		
-				   }
-				   else if( getNo == (int)MALLOC )
-				   {
-					    MemoryFreeAddressOS = memoryAddressOS(frontBulkNo);
-				   }
+				       MemoryFreeAddressOS = memoryAddressOS(frontBulkNo); 
+				    }
+				    else if( getNo == (int)MALLOC )
+				    {
+					     MemoryFreeAddressOS = memoryAddressOS(frontBulkNo);
+				    }
 				 ENABLE_INTERRUPT; 
+					 
+					  realBytes = ( rearBulkNo - frontBulkNo + 2 ) * (int)BULKBYTES;
 		   } 
 			 else  if ( getNo >= 0 )
 			 {
-				 DISABLE_INTERRUPT;	
-				   LackNoOS[getNo] = 1;
-				   LackNoAllOS[getNo]++;
-				 ENABLE_INTERRUPT;
+				   DISABLE_INTERRUPT;	
+				    LackNoOS[getNo] = 1;
+				    LackNoAllOS[getNo]++;
+				   ENABLE_INTERRUPT;
 			 } // if ( margeNo >= 0 )
 			 
 	  } // if( (bytes > 0) 
+	
+		return realBytes;
 }
 
 
-void* getMemoryOS(int getNo, int bytes)
+void* getMemoryOS(int getNo, int bytes, int *realBytes)
 {
+	   int getBytes = 0;
+	
 	   MemoryFreeAddressOS = 0x0;
 	
 		 if( (getNo >= 0) && (getNo < GETMEMORYSIZE) )
 		 { 
 	      if( StartBulkNoOS[getNo] < 0 )
 		    {	
-            memoryOS(getNo, bytes);
+            getBytes = memoryOS(getNo, bytes);
 	      } 
 		    else   // memory leak
 		    {
@@ -1979,6 +1994,11 @@ void* getMemoryOS(int getNo, int bytes)
 		    }
 	   }
 
+		 if ( realBytes != NULL )
+		 {
+		     *realBytes = getBytes;
+		 }
+	 
 		 return  MemoryFreeAddressOS;
 }
 
@@ -2061,11 +2081,11 @@ void freeOS(void* ptr)
 }
 
 
-void* getMemoryWithPutOS(int getNo, int bytes)
+void* getMemoryWithPutOS(int getNo, int bytes, int *realBytes)
 {		
 	  putMemoryOS(getNo);	
 
-		return  getMemoryOS(getNo, bytes);
+		return  getMemoryOS(getNo, bytes, realBytes);
 }
 
 

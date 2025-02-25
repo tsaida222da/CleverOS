@@ -93,7 +93,7 @@ int           cpuRegisterRegionOS(unsigned int *context, int maxLength);
 int           localVariableRegionOS(unsigned int *context, int maxLength);
 unsigned int* irregularIdleDataOS(int *number);
 int           queryResidueStackOS(void);
-char          querySafetyLevelOS(int executedCount);
+char          querySafetyLevelOS(void);
          // Delay
 void          delayTickOS(int tick);
 void          delayTimeOS( int hour, int minute, int second, int mS);
@@ -115,8 +115,8 @@ int           pendFlagOS(int *array, unsigned int privateFlag, char allOrAny, in
 char          checkPublicFlagBitOS(int flagNumber, char bitNumber);
 unsigned int  queryPublicFlagOS(int flagNumber);
          // Memory Management
-void*         getMemoryOS(int getNo, int bytes);
-void*         getMemoryWithPutOS(int getNo, int bytes);
+void*         getMemoryOS(int getNo, int bytes, int *realBytes);
+void*         getMemoryWithPutOS(int getNo, int bytes, int *realBytes);
 void          putMemoryOS(int getNo); 
 void*         mallocOS(int bytes);
 void          freeOS(void* ptr);

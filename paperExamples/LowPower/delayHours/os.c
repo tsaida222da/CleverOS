@@ -354,7 +354,7 @@ void schedulerOS(void)
 								}
 						}
 			  } // while  
-                        // task loading
+                        // counting execution times for task loading and stack safe level
 				if( (CurrentPriorityOS != (int)TASKSIZE) && (highestPriority != CurrentPriorityOS) ) 
 			  {					
 						 CountTaskOS[CurrentPriorityOS]++;
@@ -374,7 +374,7 @@ void schedulerOS(void)
 				{
 					  PowerOnOS = 1;
 				}
-						      	    // executable condition
+				    // task loading : executable condition
         if( highestPriority != CurrentPriorityOS )
         {  	
 						  DISABLE_INTERRUPT;    // after executing current task 
@@ -656,6 +656,15 @@ void resumeTaskOS(int priority)
 }
 
 
+void pauseTaskOS(int tick)
+{
+	 DISABLE_INTERRUPT;	
+	   WaitTickOS[CurrentPriorityOS] = tick;
+	 ENABLE_INTERRUPT;	
+		 clearTableOS(PriorityOwnEventOS, CurrentPriorityOS);	
+	   clearTableOS(ReadyTableOS, CurrentPriorityOS);		
+}
+
 
 int currentPriorityMapEventIndexOS(char eventType)
 {
@@ -692,16 +701,6 @@ char IsStartPendOS(char eventType)
 		 }
 
      return pend;		 
-}
-
-
-void pauseTaskOS(int tick)
-{
-	 DISABLE_INTERRUPT;	
-	   WaitTickOS[CurrentPriorityOS] = tick;
-	 ENABLE_INTERRUPT;	
-		 clearTableOS(PriorityOwnEventOS, CurrentPriorityOS);	
-	   clearTableOS(ReadyTableOS, CurrentPriorityOS);		
 }
 
 

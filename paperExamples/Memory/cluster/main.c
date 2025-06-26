@@ -88,6 +88,7 @@ void print32bits(unsigned  int  y)
 	
 
 int  k = 4;
+int  p = 17;
 int  x;
 int  count = 1;
 char *pool;
@@ -113,7 +114,7 @@ void writeChar(char sign, int bytes)
 void task0(void)  
 {	
 	  pool = getMemoryOS(0, 5*k, NULL);
-	  *(pool + 5*k-1) = '@';
+	  *(pool + p) = '@';
 	  putMemoryOS(0);
 	
     while(1)
@@ -121,7 +122,7 @@ void task0(void)
 			 x = count % k;
 	     pchar = getMemoryOS(0, x, &number);
        writeChar('A', number);
-       sendByte( *(pool + 5*k-1) );			
+       sendByte( *(pool + p) );			
 			 print32bits( count );
 			 count++;
 		   delayTickOS(d0);
@@ -135,7 +136,7 @@ void task1(void)
 			 x = count % k;
 	     pchar = getMemoryOS(1, x, &number);
        writeChar('B', number);
-       sendByte( *(pool + 5*k-1) );					
+       sendByte( *(pool + p) );					
 			 print32bits( count );
 			 count++;
 		   delayTickOS(d1);
@@ -149,7 +150,7 @@ void task2(void)
 			 x = count % k;
 	     pchar = getMemoryOS(2, x, &number);
        writeChar('C', number);
-       sendByte( *(pool + 5*k-1) );				
+       sendByte( *(pool + p) );				
 			 print32bits( count );
 			 count++;
 		   delayTickOS(d2);
@@ -163,7 +164,7 @@ void task3(void)
 			 x = count % k;
 	     pchar = getMemoryOS(3, x, &number);
        writeChar('D', number);
-       sendByte( *(pool + 5*k-1) );				
+       sendByte( *(pool + p) );				
 			 print32bits( count );
 			 count++;
 		   delayTickOS(d3);
@@ -179,7 +180,7 @@ void task4(void)
        putMemoryOS(2);
 			 putMemoryOS(3);
 
-			 sendByte( *(pool + 5*k-1) );		
+			 sendByte( *(pool + p) );		
 			 print32bits( count );
 			 count++;
 			 delayTickOS(d4);		 

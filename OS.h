@@ -91,7 +91,7 @@ int           autoMinimumStackOS(void);
 void          checkSafetyLevelOS(int level, void (*handler)(int));
 int           cpuRegisterRegionOS(unsigned int *context, int maxLength);
 int           localVariableRegionOS(unsigned int *context, int maxLength);
-unsigned int* irregularIdleDataOS(int *number);
+unsigned int  irregularIdleDataOS(void);
 int           queryResidueStackOS(void);
 char          querySafetyLevelOS(void);
          // Delay

@@ -9,6 +9,7 @@
 #define  MEMORYPOOL       ( QMEMORY + MEMORYPOOLBYTES )
 #define  GLOBALBULKLENGTH ( MEMORYPOOL % BULKBYTES ? MEMORYPOOL / BULKBYTES + 1 : MEMORYPOOL / BULKBYTES )	
 #define  FREEBULKLENGTH   ( GLOBALBULKLENGTH ? GLOBALBULKLENGTH / 33   + 1 : 0 )
+#define  MEMORYBULKLENGTH ( MEMORYPOOLBYTES % BULKBYTES ? MEMORYPOOLBYTES / BULKBYTES + 1 : MEMORYPOOLBYTES / BULKBYTES )	
 
           // inline.c
 extern int  findLeastBitOS(unsigned int);
@@ -979,39 +980,43 @@ char dangerSafeOS(int level)
 }
 
 
-unsigned int* irregularIdleDataOS(int *number) 
+unsigned int irregularIdleDataOS(void) 
 {
-		unsigned int*  highAddress = 0x0;
-    int  k;
+		unsigned int  *localRegionAddr;
+		unsigned int  *idleRegionAddr;
 	  unsigned int  *spAddr;
-	  unsigned int* idleAddress[2] = {0, 0};
-	
+	  unsigned int  maliciousData = 0;
+	  int           k;
+
     spAddr = TaskSpPointerOS[CurrentPriorityOS];
  
-	  if(  (*(spAddr + 1) == (unsigned int)IDLEITEM) || (*((unsigned int*)*spAddr -1) == (unsigned int)IDLEITEM)  )
+	  if(  *(spAddr + 1) == (unsigned int)IDLEITEM  )
 		{
-		   k = 1;				
-       while(  *(spAddr + 1 + k) == (unsigned int)IDLEITEM  )
-       {
-          k++;
-       }
-		   idleAddress[0] = (unsigned int*)(spAddr + k);
-		
+			 idleRegionAddr = spAddr + 1;
+			 localRegionAddr = (unsigned int*)*spAddr - 1;
+
 		   k = 0;
-		   while (  ( ( (unsigned int)*((unsigned int*)*spAddr -1 - k) == (unsigned int)IDLEITEM) ) && ( (unsigned int)((unsigned int*)*spAddr -1 - k) > (unsigned int)idleAddress[0] ) )
+		   while (  *(localRegionAddr - k) != (unsigned int)IDLEITEM  )
 		   {
 			    k++;
 		   }
-		   idleAddress[1] = (unsigned int*)( (unsigned int*)*spAddr -1 - k );
+		   localRegionAddr = localRegionAddr - k + 1;  // boundary of local region
 
-		   if ( ( number != NULL) && ((unsigned int)idleAddress[0] != (unsigned int)idleAddress[1] ) )
+			
+		   k = 0;				
+       while(  *(idleRegionAddr + k) == (unsigned int)IDLEITEM  )
+       {
+          k++;
+       }
+		   idleRegionAddr = idleRegionAddr + k;
+		
+		   if ( ((unsigned int)localRegionAddr-(unsigned int)idleRegionAddr)  > 3 )
 		   {
-			    highAddress = idleAddress[1];
-				  *number = ( ( (unsigned int)idleAddress[1] - (unsigned int)idleAddress[0] ) / sizeof(unsigned int) );
+           maliciousData = (unsigned int)*idleRegionAddr;
 		   }
 	  }
 		
-		return highAddress;		
+		return  maliciousData;		
 }
 
 
@@ -1855,24 +1860,26 @@ void* memoryAddressOS(int bulkNo)
 int findFreeMemoryOS(int desiredBulkLength)
 {
 	  int  k;
-		int  i = 0;
-		int  length1;    // continue free bulk
-    int  margeNo = -1;
+		int  i = 0;          // global bulk number
+		int  length1;        // continue free bulk
+    int  margeNo = -1;   // boundary bulk number
 		char setBit;
+	  static int byteLength = 8;
+	  static int STARTMEMORYNO = GLOBALBULKLENGTH - MEMORYBULKLENGTH;
 	
-		if ( (GLOBALBULKLENGTH > 1) && (desiredBulkLength < GLOBALBULKLENGTH) )
-		{
+		if ( (GLOBALBULKLENGTH > 1) && (desiredBulkLength <= GLOBALBULKLENGTH) )
+		{ 
 			 k =0;
 			 while ( (FreeBulkNoOS[k] == 0) || (FreeBulkNoOS[k] == 0x80000000) )
 			 {
-				 	 i = (FreeBulkNoOS[k] == 0x80000000) ? 8 * sizeof(unsigned int) * (k + 1) - 1 : 8 * sizeof(unsigned int) * (k + 1);
-				   k++;
+					 i = (FreeBulkNoOS[k] == 0x80000000) ? byteLength * sizeof(unsigned int) * (k + 1) - 1 : byteLength * sizeof(unsigned int) * (k + 1);
+	         k++;
 			 }
 
        while( i < GLOBALBULKLENGTH-1 )
 		   {
 		       if( checkSetBitOS(FreeBulkNoOS, i) )
-		       { 
+		       {
 						   length1 = 1;
 					     setBit = checkSetBitOS(FreeBulkNoOS, i+1); // find continuous free bulk
 							 
@@ -1884,13 +1891,20 @@ int findFreeMemoryOS(int desiredBulkLength)
 					             setBit = checkSetBitOS(FreeBulkNoOS, i+length1);	// check continuous free bulk	
                    }										
 		           } 
- 
-               if( (length1 > desiredBulkLength+1) || ( (i==0) && (length1 == desiredBulkLength+1) ) )
+
+               if( (length1 > desiredBulkLength+1) || ( ((i==0)||(i==STARTMEMORYNO-1)) && (length1 == desiredBulkLength+1) ) )
 			         { 
 							     margeNo = i;
 								   break;
 			         }
-
+//setBit = checkSetBitOS(FreeBulkNoOS, i+length1);
+			//				 setBit = checkSetBitOS(FreeBulkNoOS, (int)(GLOBALBULKLENGTH-1));
+							 if( (length1 == desiredBulkLength) && (i == GLOBALBULKLENGTH-desiredBulkLength) && checkSetBitOS(FreeBulkNoOS, (int)(GLOBALBULKLENGTH-1)) )
+			         { 
+							     margeNo = i;
+								   break;
+			         }
+							 
 							 i += length1+1;				 
 				   } 
 				   else
@@ -1900,10 +1914,6 @@ int findFreeMemoryOS(int desiredBulkLength)
 						
 		    }	// while
 		 } // if ( GLOBALBULKLENGTH > 1 )
-		 else if ( (desiredBulkLength < 2) && checkSetBitOS(FreeBulkNoOS, 0) )
-		 {
-			   margeNo = 0;
-		 }
 
 	   return  margeNo;
 }
@@ -1912,19 +1922,26 @@ int findFreeMemoryOS(int desiredBulkLength)
 int memoryOS(int getNo, int bytes)
 {
 	  int  i;           // bulk number of available memory
- 	  int  margeNo;     // marge bulk number
+ 	  int  margeNo;     // boundary bulk number
 	  int  desiredBulkLength;
 	  int  frontBulkNo;
 	  int  rearBulkNo;
 	  int  realBytes = 0;
+	  static int STARTMEMORYNO = GLOBALBULKLENGTH - MEMORYBULKLENGTH;
 
 		if( (bytes > 0) && (getNo < GETMEMORYSIZE) && (getNo >= (int)MALLOC) )
 		{
 			 desiredBulkLength = bytes % BULKBYTES ? bytes / BULKBYTES+1 : bytes / BULKBYTES ;	
+			
 	     if( desiredBulkLength == 0 )
 		   {
 			    desiredBulkLength = 1;
 		   }
+			 else if ( desiredBulkLength > GLOBALBULKLENGTH )
+			 {
+				   desiredBulkLength = GLOBALBULKLENGTH;
+			 }
+			 
        margeNo = findFreeMemoryOS(desiredBulkLength);
 	
 			 if ( margeNo >= 0 )
@@ -1935,30 +1952,45 @@ int memoryOS(int getNo, int bytes)
 						         //       |     |   margeNo+length1    length1=5, desiredBulkLength=3
                      //  margeNo rearBulkNo
 
-					  frontBulkNo = margeNo<1 ? 0 : margeNo+1;  // if margeNo=0, margeNo is available bulk
+					  frontBulkNo = (margeNo == 0) ? 0 : margeNo+1;  // if margeNo=0, margeNo is an available bulk
 
-						rearBulkNo = margeNo<1 ? desiredBulkLength-1 : margeNo + desiredBulkLength;				
+						rearBulkNo = frontBulkNo + desiredBulkLength - 1;				
 
 				 	  for(i= frontBulkNo; i<= rearBulkNo; i++ ) //  FreeBulkNoOS[margeNo] = 1
 				    {
 			         clearTableOS(FreeBulkNoOS, i);			// using
 				    }
 						
-	 	      DISABLE_INTERRUPT;						
+	 	       DISABLE_INTERRUPT;	
+					  MemoryFreeAddressOS = memoryAddressOS(frontBulkNo);		
+					 ENABLE_INTERRUPT;	
+						
 				    if( getNo >= 0 )
 				  	{  
-							 StartBulkNoOS[getNo] = frontBulkNo;
-				       MemoryFreeAddressOS = memoryAddressOS(frontBulkNo); 
+							 DISABLE_INTERRUPT;
+							  StartBulkNoOS[getNo] = frontBulkNo;
+							 ENABLE_INTERRUPT;		
+							
+								if ( ( rearBulkNo - frontBulkNo ) >= (MEMORYBULKLENGTH - 2) )  // entire pool
+						    {
+							      realBytes = MEMORYPOOLBYTES;
+						    }
+					      else if ( rearBulkNo == (GLOBALBULKLENGTH - 1) )    // memory pool boundary
+						    {
+					          realBytes = ( rearBulkNo - frontBulkNo + 1 ) * (int)BULKBYTES;
+						    }
+						    else
+						    {
+					          realBytes = ( rearBulkNo - frontBulkNo + 2 ) * (int)BULKBYTES;
+						    }
 				    }
-				    else if( getNo == (int)MALLOC )
-				    {
-					     MemoryFreeAddressOS = memoryAddressOS(frontBulkNo);
-				    }
-				 ENABLE_INTERRUPT; 
-					 
-					  realBytes = ( rearBulkNo - frontBulkNo + 2 ) * (int)BULKBYTES;
-		   } 
-			 else  if ( getNo >= 0 )
+		   } // if ( margeNo >= 0 )
+			 else if ( (MEMORYBULKLENGTH == 1) && checkSetBitOS(FreeBulkNoOS, STARTMEMORYNO) )
+		   {
+				   MemoryFreeAddressOS = memoryAddressOS(STARTMEMORYNO); 
+			     realBytes = MEMORYPOOLBYTES;
+		   }
+			 else if ( getNo >= 0 )   // get memory failure
 			 {
 				   DISABLE_INTERRUPT;	
 				    LackNoOS[getNo] = 1;

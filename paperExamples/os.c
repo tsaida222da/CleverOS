@@ -31,12 +31,13 @@ typedef struct
 	 void*  dataRx; 
 	 int    itemsRx;
 	 char   completeRx;
-	
-	 int    itemsTx;
-	 void*  dataTx;  
-   int    length;
 	 char   power;
+
+	 void*  dataTx;  	
+	 int    itemsTx;
 	 char   completeTx;
+	 int    length;
+	 char   startTx;
 }qtxrxOS;
 
 typedef struct
@@ -99,7 +100,7 @@ int           DelayUntilPriorityOS[UNTILSIZE];  // priority value
 qbodyOS       QBodyOS[QSIZE];
 qtxrxOS       QTxRxOS[QSIZE];
 void*         qRetrieveOS[QSIZE][QLENGTH];
-char          FlagTxRxOS = 0;
+int           PerRxLengthOS = 0;
 
 int           TaskClockOS[TASKSIZE+1][2];   // [0]- before task executing  [1]- after task executing
 unsigned int  TaskExecuteClockOS[TASKSIZE+1];  // clock elapsed
@@ -408,12 +409,12 @@ void schedulerOS(void)
 void idleTaskOS(void)
 {
     while(1) 
-		{ 					 
+		{  
 				      // low power mode
 		     if ( ( lowPowerTimerOS != NULL ) && !( PowerOnOS ) )
 				 {
 					   lowPowerTimerOS();
-				 }					
+				 }				 
 		}
 } 
 
@@ -492,11 +493,13 @@ void initializeEventOS(void)
 			    QBodyOS[i].inIndex =0;
 				  QBodyOS[i].outIndex =0;
 				  QBodyOS[i].items =0;
-			 
+
 			    QTxRxOS[i].completeTx = 1;
 			 		QTxRxOS[i].completeRx = 1;
 			    QTxRxOS[i].itemsRx = 0;
-			    QTxRxOS[i].power = 0;
+			    QTxRxOS[i].power = 0;	 
+			    QTxRxOS[i].dataTx = NULL;	 
+			    QTxRxOS[i].startTx = 1;
 			  ENABLE_INTERRUPT;
 		 } 	
 
@@ -606,20 +609,20 @@ char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(v
 			    errorCode = 4;  
 			}
 
-			if ( (QSIZE>0) && (QLENGTH < 1) )
+			if ( (QSIZE>0) && ( (QLENGTH < 1) || ((int)BULKBYTES % 2) )  )
 			{
 			    errorCode = 5;  
 			}
-			
+
 	    return errorCode;
 }
 
 
 char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void) )
 { 
-	  char         errorCode;
-	  unsigned int topStackPointer;
-	  unsigned int OSclock = TICK;
+	  char          errorCode;
+	  unsigned int  topStackPointer;
+	  unsigned int  OSclock = TICK;
 	
 		errorCode = checkStartErrorOS(arraySize, startPriority, lowPowerTimer);
 
@@ -1135,6 +1138,29 @@ int localVariableRegionOS(unsigned int *context, int maxLength)
 }
 
 
+
+void minimumPaddingOS(int taskSize, void (*display)(unsigned int), int times)   
+{
+		int  i;
+	  int  bytes;
+    int  *pint;
+	  static int  count = 0;
+	
+	  if ( count < times )
+		{
+			 pint = minimumStackOS(&bytes);			
+       display( bytes );
+		 
+		   for(i=0; i<taskSize; i++)
+			 {
+				   display( *(pint + i) );		 // task padding
+			 }
+			 
+       count++;			 
+		 }			 
+}
+
+
 /*****************************************************************/
 /*                           Delay                               */
 /*****************************************************************/
@@ -1528,6 +1554,21 @@ void* pendMailOS(int *array, int *readyNumberAddr, char clear, int timeout)
 		return address;
 }
 
+
+void selfPriorityMail_TxOS(int number, void *messageAddr)
+{
+	  if (  (number >= 0) && (number < MAILSIZE) )
+		{	
+			   ReceiveMessageOS[number] = messageAddr;	
+				 clearTableOS(PriorityOwnEventOS, CurrentPriorityOS);
+	  } 	 
+}
+
+
+void* selfPriorityMail_RxOS(int number)
+{
+	  return  readMailOS(number, CLEARMAIL);
+}
 
 
 /*****************************************************************/
@@ -2390,8 +2431,7 @@ void* pendQOS(int *array, int* readyNo, int* items, int timeout)
 							
 					if( number >= 0 )  // find items
 					{ 
-					  DISABLE_INTERRUPT;
-		//				  SleepPendQOS[number] = pend;         
+					  DISABLE_INTERRUPT;    
 							retrieveAddress = readQOS(number, items);         									
 						ENABLE_INTERRUPT;	
 					} // if( number >= 0 )
@@ -2432,13 +2472,21 @@ int qReadyNumberOS(void* retrieveAddress)
 }
 
 
-void qTxRealtimeOS(int number, void *messageAddr)
+
+int queryRemainItemsOS(int number)
+{
+   return QLENGTH - QBodyOS[number].items;
+}
+
+
+       // real time communication
+void realtimeTxOS(int number, void *messageAddr)
 {
 	  postQOS(number, messageAddr);
 }
 
 
-void* qRxRealtimePendOS(int number)
+void* realtimeRxPendOS(int number)
 {
 	  pendQOS(&number, NULL, NULL, INFINITE);;
 	
@@ -2447,31 +2495,38 @@ void* qRxRealtimePendOS(int number)
 
 
 
-int queryRemainItemsOS(int number)
-{
-   return QLENGTH - QBodyOS[number].items;
-}
 
-       // value communication
+       //  nonblocking communication (value)
 
-void qTxValueOS(int qNo, void* pData, int length, char power)
+char nonblockTxOS(int qNo, void* pData, int length, char power)
 {
-	DISABLE_INTERRUPT;
-	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeTx) && (length > 0) )
-	  {
-		   QTxRxOS[qNo].itemsTx = 0;
-	     QTxRxOS[qNo].dataTx = pData;
-	     QTxRxOS[qNo].length = length;
-	     QTxRxOS[qNo].power = power;
-		   QBodyOS[qNo].inIndex = 0;
-			
-			 QTxRxOS[qNo].completeTx = 0;	 
-	  }
-		else if ( length == 0 )
+	  char  startTx;
+	
+	  startTx = QTxRxOS[qNo].startTx;
+	
+	  if ( startTx )
 		{
-			  QTxRxOS[qNo].length = 0;
-		}
-	ENABLE_INTERRUPT;
+	    DISABLE_INTERRUPT;
+	
+	      QTxRxOS[qNo].startTx = 0;
+	      QTxRxOS[qNo].length = 0;			
+			
+	      if ( (qNo < QSIZE) && (qNo >= 0) && (length > 0) )
+	      {
+		        if ( QTxRxOS[qNo].completeTx )
+		        {
+		           QTxRxOS[qNo].itemsTx = 0;
+	             QTxRxOS[qNo].dataTx = pData;
+	             QTxRxOS[qNo].length = length;  
+	             QTxRxOS[qNo].power = power;
+		           QBodyOS[qNo].inIndex = 0;
+			         QTxRxOS[qNo].completeTx = 0;	
+			      }				 
+	      }
+	    ENABLE_INTERRUPT;
+	  }
+		
+		return  startTx;
 }
 
 
@@ -2522,36 +2577,49 @@ void qTxOS(void)
 		   if ( !QTxRxOS[i].completeTx )
 		   { 
 				  remainTxItems = QTxRxOS[i].length - QTxRxOS[i].itemsTx;
-
+				 
           if ( queryRemainItemsOS(i) && remainTxItems )
-	        {		 
+	        {			
 		         intData = QTxRxOS[i].power ? (int)(( *((float*)QTxRxOS[i].dataTx + QTxRxOS[i].itemsTx) ) * (float)multiplier ) : *((int*)(QTxRxOS[i].dataTx) + QTxRxOS[i].itemsTx);
-			       remainQItems = writeQOS(i, (void*)intData, &remainTxItems);
+			       remainQItems = writeQOS(i, (void*)intData, &remainTxItems);							 
 						 
 	           while ( remainQItems && remainTxItems )
 		         {
                 intData = QTxRxOS[i].power ? (int)(( *((float*)QTxRxOS[i].dataTx + QTxRxOS[i].itemsTx) ) * (float)multiplier ) : *((int*)(QTxRxOS[i].dataTx) + QTxRxOS[i].itemsTx);			  
-				        remainQItems = writeQOS(i, (void*)intData, &remainTxItems);
+				        remainQItems = writeQOS(i, (void*)intData, &remainTxItems);								
 	           }
-          } 
+          }
 		   } 
-	 } 
+	 } // for
 }
 
-	 
-void qRxValueOS(int qNo, void* pData)
+
+int nonblockRxOS(int qNo, void* pData)
 {
+	  int  perRxLength;
+	
 	DISABLE_INTERRUPT;	
-	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeRx) )
+	  if ( (qNo < QSIZE) && (qNo >= 0) )
 	  { 
-		 	 QTxRxOS[qNo].itemsRx = 0;
-			 QTxRxOS[qNo].dataRx = pData;	
-		   QBodyOS[qNo].outIndex = 0;
-			
-			 QTxRxOS[qNo].completeRx = 0;	
-		   FlagTxRxOS = 1;
+		   if ( QTxRxOS[qNo].completeRx )
+	     {
+		 	    QTxRxOS[qNo].itemsRx = 0;
+			    QTxRxOS[qNo].dataRx = pData;	
+		      QBodyOS[qNo].outIndex = 0;
+			    QTxRxOS[qNo].completeRx = 0;	
+			 }
 	  }
+		
+		perRxLength = PerRxLengthOS;
+	
+	  if ( perRxLength > 0 )
+		{
+			  QTxRxOS[qNo].startTx = 1;
+	      PerRxLengthOS = 0;
+		}
 	ENABLE_INTERRUPT;	
+		
+		return  perRxLength;
 }
 				 
 				 
@@ -2565,14 +2633,14 @@ void qRxOS(void)
 
 	 for (i=0; i<QSIZE; i++)
 	 {
-	     multiplier = 1;
-	     for (m=0; m < QTxRxOS[i].power; m++)
-	     {
-		      multiplier *= 10;		
-	     }
+	    multiplier = 1;
+	    for (m=0; m < QTxRxOS[i].power; m++)
+	    {
+		     multiplier *= 10;		
+	    }
 	 		
-			 if ( !QTxRxOS[i].completeRx )
-		   {   
+			if ( !QTxRxOS[i].completeRx )
+		  {   
 	        for(k=0; k < QBodyOS[i].items; k++)
 	        {
 			      DISABLE_INTERRUPT;	
@@ -2593,37 +2661,47 @@ void qRxOS(void)
              {
                 QBodyOS[i].outIndex = 0;
              }
-
-				     if ( QTxRxOS[i].itemsRx ==  QTxRxOS[i].length )
-		         {
-		            QTxRxOS[i].completeRx = 1;
-							  QTxRxOS[i].completeTx = 1;
-		         }
 		        ENABLE_INTERRUPT;						
-	        } 	// for
+	       } 	// for
 					
-				 DISABLE_INTERRUPT;	
-					QBodyOS[i].items = 0;  
-				 ENABLE_INTERRUPT;	
-		   }
+				DISABLE_INTERRUPT;	
+				 
+				 if ( QTxRxOS[i].itemsRx == QTxRxOS[i].length )
+		     {
+		         QTxRxOS[i].completeRx = 1;
+					   QTxRxOS[i].completeTx = 1;
+		     }
+ 
+				 PerRxLengthOS = QBodyOS[i].items;
+				 QBodyOS[i].items = 0; 
+				 
+				ENABLE_INTERRUPT;	
+		  }
 	 } // for
 }
 
 
-int packetLengthOS(int qNo)
-{
-	  return  QTxRxOS[qNo].length;
-}
-
-
 void nonBlockingValueTransferOS(void)
-{
-		 if ( FlagTxRxOS )
-		 {
-	       qTxOS();
-	       qRxOS();
-		 }
+{ 
+	  int   i;
+	  char  flag = 0;
+	
+	  for (i=0; i<QSIZE; i++)
+	  {		 
+			  if ( QTxRxOS[i].dataTx != NULL )
+			  {
+					  flag = 1;
+				    break;
+			  }
+		}
+
+	  if ( flag )
+	  {
+	      qTxOS();
+	      qRxOS();
+	  }
 }
+
 
 /*****************************************************************/
 /*                        Task Load                              */

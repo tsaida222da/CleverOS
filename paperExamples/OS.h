@@ -29,7 +29,7 @@
 #define  OSCLOCK_1M       1000000
 
            // select OS tick
-#define  TICK              OSCLOCK_100mS
+#define  TICK              OSCLOCK_50mS
 
 #if   defined ( ARM )     
   #define  WORDSIZE    4
@@ -87,6 +87,7 @@ int           ramToPaddingOS(int ramBytes, int taskSize);
 int           paddingToRamOS(int totalPadding, int taskSize);						
 int           autoPackItemsOS(void);
 int*          minimumStackOS(int* minimumRam);
+void          minimumPaddingOS(int taskSize, void (*display)(unsigned int), int times);
 int           autoMinimumStackOS(void);
 void          checkSafetyLevelOS(int level, void (*handler)(int));
 int           cpuRegisterRegionOS(unsigned int *context, int maxLength);
@@ -109,6 +110,8 @@ int           pendMutexOS(int *array, int timeout);
 void          postMailOS(int number, void *messageAddr);
 void*         readMailOS(int number, char clear);
 void*         pendMailOS(int *array, int *readyNumberAddr, char clear, int timeout);
+void          selfPriorityMail_TxOS(int number, void *messageAddr);
+void*         selfPriorityMail_RxOS(int number);
          // Flag
 void          postFlagOS(int number, unsigned int modifyPublicFlag, char setOrClear );
 int           pendFlagOS(int *array, unsigned int privateFlag, char allOrAny, int timeout);
@@ -126,20 +129,23 @@ int           lackMemoryNoOS(void);
 int*          leakAllOS(void);
 int*          lackAllOS(void);
          // Queue
+				                // post  pend
+int           qReadyNumberOS(void* retrieveAddress);
+int           queryRemainItemsOS(int number);				 
 int           postQOS(int number, void *messageAddr);
 void*         pendQOS(int *array, int* readyNo, int* items, int timeout);
-int           qReadyNumberOS(void* retrieveAddress);
-int           queryRemainItemsOS(int number);
-void          qRxValueOS(int qNo, void* pData);
-void          qTxValueOS(int qNo, void* pData, int length, char power);
-int           packetLengthOS(int qNo);
-void          qTxRealtimeOS(int number, void *messageAddr);
-void*         qRxRealtimePendOS(int number);
+                        // real time
+void          realtimeTxOS(int number, void *messageAddr);
+void*         realtimeRxPendOS(int number);
+                        // non-blocking
+int           nonblockRxOS(int qNo, void* pData);
+char          nonblockTxOS(int qNo, void* pData, int length, char power);
          // Task Loading
 int*          relativeTaskLoadOS(void);
 int           idleTaskLoadOS(void);
          // Low Power Mode
 unsigned int  matchRegisterOS(void);	
+
 
 
 	

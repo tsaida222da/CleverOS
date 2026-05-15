@@ -23,8 +23,8 @@
 #define  TICK             OSCLOCK_100mS  // number of CPU clock per OS tick
 
 #define  NULL             0x0
-#define  INFINITE       -1
-#define  ISOLATE          -2
+#define  INFINITE      (unsigned long)0xFFFFFFFE
+#define  ISOLATE       (unsigned long)0xFFFFFFFF
 	
 #define SystickControlRegisterOS       ( *( ( volatile unsigned int* ) 0xE000E010 ) )
 #define SystickLoadRegisterOS          ( *( ( volatile unsigned int* ) 0xE000E014 ) )
@@ -37,10 +37,10 @@ char startOS(void (*[])(void), int, int, void (*)(void));
 unsigned int queryReadyTableOS(void);
 int  findOptimalPaddingOS(void);
 void deleteSelfOS(void);
-void delayTickOS(int);
+void delayTickOS(unsigned long);
 void delayTimeOS(int, int, int, int);
 void postSemOS(char);
-void pendSemOS(char, int);
+void pendSemOS(char, unsigned long);
 void schedulerOS(void);
-unsigned int  matchRegisterOS(void);
+unsigned long  matchRegisterOS(void);
 

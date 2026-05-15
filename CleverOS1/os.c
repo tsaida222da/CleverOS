@@ -13,9 +13,9 @@ void         (*lowPowerTimerOS)(void);
 stackOS       *CurrentTaskOS; 
 stackOS       *NextTaskOS;  
 stackOS       TaskOS[TASKSIZE+1];  // including idleTaskOS()
-int           WaitTickOS[TASKSIZE];
+unsigned long WaitTickOS[TASKSIZE];
 unsigned int  ReadyTableOS;  // bit value 1 is ready state, bit index is task priority value
-unsigned int  MinDelayTickOS;
+unsigned long MinDelayTickOS;
 int           CurrentPriorityOS;   // priority value <= TASKSIZE - 1, priority value begin from 0
 int           TickPerSecondOS;
 char          PowerOnOS = 1;
@@ -23,11 +23,17 @@ char          SemNumberTaskOS[TASKSIZE];  // initialized in startOS(), used in p
 char          PriorityOwnEventOS[TASKSIZE];     // array index is priority value, 0 <= priority <=  TASKSIZE - 1
 
 
-void initializeSysTickOS(void)
+void enableSystemTickOS(void)
 {
 	  SystickLoadRegisterOS = (int)TICK -1;
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable, interrupt, system(CPU) clock
+}
+
+
+void disableSystemTickOS(void)
+{
+		SystickControlRegisterOS = ~(1<<0) & ~(1<<1) & ~(1<<2);  // disable Systen Tick timer		
 }
 
 
@@ -144,7 +150,7 @@ __asm void setCONTROLOS(unsigned int usePSP)
 void minDelayTickOS(void)
 {
 	  int  i;
-		unsigned int  min = 0xffffffff;
+		unsigned long  min = 0xffffffff;
 
     for (i=0; i<TASKSIZE; i++)
 		{
@@ -173,7 +179,7 @@ void minDelayTickOS(void)
 
 
 
-unsigned int matchRegisterOS(void)
+unsigned long matchRegisterOS(void)
 {
 	  return  MinDelayTickOS;
 }
@@ -214,7 +220,6 @@ void schedulerOS(void)
 							
 				if( (CurrentPriorityOS != (int)TASKSIZE) && (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS ) 
 			  {
-             minDelayTickOS();
              PowerOnOS = 0;							 
 				}
 				else if( (highestPriority != (int)TASKSIZE) && (!PowerOnOS)) 
@@ -239,15 +244,18 @@ void schedulerOS(void)
 void idleTaskOS(void)
 {
     while(1) 
-		{ 					 
-				    // low power mode
+		{  
+				      // low power mode
 		     if ( ( lowPowerTimerOS != NULL ) && !( PowerOnOS ) )
 				 {
+					 	 minDelayTickOS();
+					   disableSystemTickOS();
 					   lowPowerTimerOS();
-				 }					
+					   enableSystemTickOS();
+					 	 schedulerOS();
+				 }				 
 		}
 } 
-
 
 
 void initializeTaskOS( void (*handler)(void), int priority)
@@ -309,7 +317,7 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 		 }	
 
 		 lowPowerTimerOS = lowPowerTimer;
-	   initializeSysTickOS();
+	   enableSystemTickOS();
 		 setHandlerPriorityOS();	
 		 
 		       // initialize  tasks
@@ -339,27 +347,27 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
  }
 
 
+ 
 void SysTick_Handler(void)
 {
-     int  i;
+     int   i;
      char  schedule = 0; 
 
 		            // one Tick Passed and set ready task
      for( i=0; i<TASKSIZE; i++ )   // i is task's priority value
      {
-				  if ( WaitTickOS[i] >= 1 )		// task's waitTick < 0 can not be ready(timeout is infinite)   
-          {
-						 DISABLE_INTERRUPT;
-				       WaitTickOS[i]--;	
-						 ENABLE_INTERRUPT;
-          } 
-						 
-				  if ( WaitTickOS[i] == 0  )	
-          {	
-					     setReadyTableOS(i);							 					 
-						   schedule = 1;
-          } 						 
-								
+			   if ( (WaitTickOS[i] > 0) && (WaitTickOS[i] < INFINITE) )	  
+         {
+					 DISABLE_INTERRUPT;
+				    WaitTickOS[i]--;
+					 ENABLE_INTERRUPT;
+         } 
+				 
+			 	 if ( WaitTickOS[i] == 0  )	
+         {
+					   setReadyTableOS(i);
+					   schedule = 1;
+         } 				 		
      } 
 				
 		 if ( schedule )
@@ -369,7 +377,7 @@ void SysTick_Handler(void)
 }
 
 
-void pauseTaskOS(int timeout)
+void pauseTaskOS(unsigned long timeout)
 {	
      DISABLE_INTERRUPT;				
 	    PriorityOwnEventOS[CurrentPriorityOS] = 0;	   // current task does not own event
@@ -379,7 +387,7 @@ void pauseTaskOS(int timeout)
 }
 
 
-void delayTickOS(int tick)
+void delayTickOS(unsigned long tick)
 {
 	 if ( interruptNumberOS() == 0 )
 	 {
@@ -394,35 +402,35 @@ void deleteSelfOS(void)
 	  delayTickOS( ISOLATE );
 }
 
-
 void delayTimeOS( int hour, int minute, int second, int  mS)
 {
-	 int   tick;	 
-	
-	 if ( interruptNumberOS() == 0 )
-	 {
+    unsigned long  tick;
+	  int            remainder;	
+
+		if ( interruptNumberOS() == 0 )
+		{	
 	     if ( ( hour >= 0 ) && (  minute >= 0 ) && ( second >= 0 ) && ( mS >= 0 ) )
 		   {
-	         tick = TickPerSecondOS * ( hour * 3600 + minute * 60 + second );
-	         tick += TickPerSecondOS * mS / 1000; 
+	         tick      = TickPerSecondOS * ( hour * 3600 + minute * 60 + second );
+	         tick     += TickPerSecondOS * mS / 1000; 
+		       remainder = TickPerSecondOS * mS % 1000; 
 			 
-			     if ( (TickPerSecondOS * mS % 1000) > 500 )
+			     if ( remainder > 500 )
 				   {
-					    tick++; 
+				      tick++; 
 				   }	
 				 
 			     if ( tick < 1 )
 				   {
-					    tick = 1; 
+				      tick = 1; 
 				   }
-					 
+
 	         pauseTaskOS(tick);
 		   }
 		 
        schedulerOS();	
-	 }			 
-} 
-
+   }		
+}
 
 
              // It is permissible that multiTask pend the same SemNumber 
@@ -441,7 +449,7 @@ void postSemOS(char semNumber)
 	              SemNumberTaskOS[CurrentPriorityOS] = (char)-1;   // does not pend Sem
 	             ENABLE_INTERRUPT;		 
 						}
-						else if( (SemNumberTaskOS[i] == semNumber) && (WaitTickOS[i] >= (int)INFINITE) )  // resume all tasks pendding this number
+						else if( (SemNumberTaskOS[i] == semNumber) && (WaitTickOS[i] <= INFINITE) )  // resume all tasks pendding this number
 						{	
 	                  DISABLE_INTERRUPT;									 
 	                    SemNumberTaskOS[i] = (char)-1; 		// delete sem number
@@ -460,7 +468,7 @@ void postSemOS(char semNumber)
 }
 
                     //  timeout is the number of tick 
-void pendSemOS(char semNumber, int timeout)
+void pendSemOS(char semNumber, unsigned long timeout)
 { 
 	  if ( interruptNumberOS() == 0 )
 		{		

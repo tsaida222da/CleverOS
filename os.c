@@ -31,12 +31,13 @@ typedef struct
 	 void*  dataRx; 
 	 int    itemsRx;
 	 char   completeRx;
-	
-	 int    itemsTx;
-	 void*  dataTx;  
-   int    length;
 	 char   power;
+
+	 void*  dataTx;  	
+	 int    itemsTx;
 	 char   completeTx;
+	 int    length;
+	 char   startTx;
 }qtxrxOS;
 
 typedef struct
@@ -59,10 +60,10 @@ unsigned int* CurrentTaskOS;      // address of sp(the entry of CPU registers st
 unsigned int* NextTaskOS;         // address of sp 
 int           CurrentPriorityOS;   // 0 <= task priority value <= TASKSIZE - 1
 int           TickPerSecondOS;
-int           WaitTickOS[TASKSIZE];     // exclude idleTaskOS()
+unsigned long WaitTickOS[TASKSIZE];     // exclude idleTaskOS()
+unsigned long SystemTickOS;
 unsigned int  ReadyTableOS[TABLELENGTH];  // bit index is priority
 unsigned int  CountTaskOS[TASKSIZE]; 
-int           SystemTickOS;
 char          ErrorPendSizeOS = 0;
 char          PowerOnOS = 1;
 
@@ -99,13 +100,13 @@ int           DelayUntilPriorityOS[UNTILSIZE];  // priority value
 qbodyOS       QBodyOS[QSIZE];
 qtxrxOS       QTxRxOS[QSIZE];
 void*         qRetrieveOS[QSIZE][QLENGTH];
-char          FlagTxRxOS = 0;
+int           PerRxLengthOS[QSIZE];
 
 int           TaskClockOS[TASKSIZE+1][2];   // [0]- before task executing  [1]- after task executing
 unsigned int  TaskExecuteClockOS[TASKSIZE+1];  // clock elapsed
 int           TaskLoadOS[TASKSIZE];       // %
 
-unsigned int  MinDelayTickOS;
+unsigned long MinDelayTickOS;
 
 /*****************************************************************/
 /*                        Kernel                                 */
@@ -118,16 +119,23 @@ void  idleTaskOS(void);                 // used   by initializeTaskOS()
 void  minDelayTickOS(void);             // called by schedulerOS()
 char  checkDelayUntilOS(void);          // called by SysTick_Handler()
 void  nonBlockingValueTransferOS(void); // called by SysTick_Handler()
-void  delayTickOS(int);                 // called by deleteSelfOS()
+void  delayTickOS(unsigned long);       // called by deleteSelfOS()
 	
 #if   defined  CM0 
 
-void initializeSysTickOS(void)
+void enableSystemTickOS(void)
 {
 	  SystickLoadRegisterOS = (unsigned int)TICK - 1;
 	  SystickCurrentValueRegisterOS = 0x0;
 	  SystickControlRegisterOS = (1<<0) | (1<<1) | (1<<2); // enable, interrupt, system cpu clock
 }
+
+
+void disableSystemTickOS(void)
+{
+		SystickControlRegisterOS = ~(1<<0) & ~(1<<1) & ~(1<<2);  // disable Systen Tick timer		
+}
+
 
 void setHandlerPriorityOS(void)
 {
@@ -368,7 +376,6 @@ void schedulerOS(void)
 				          // low power mode
 				if( (CurrentPriorityOS != (int)TASKSIZE) && (highestPriority == (int)TASKSIZE) && (lowPowerTimerOS != NULL) && PowerOnOS )
 			  {
-					   minDelayTickOS();
 					   PowerOnOS = 0;	 
 				}
 				else if ( (highestPriority != (int)TASKSIZE) && (!PowerOnOS) )
@@ -408,12 +415,16 @@ void schedulerOS(void)
 void idleTaskOS(void)
 {
     while(1) 
-		{ 					 
+		{  
 				      // low power mode
 		     if ( ( lowPowerTimerOS != NULL ) && !( PowerOnOS ) )
 				 {
+					 	 minDelayTickOS();
+					   disableSystemTickOS();
 					   lowPowerTimerOS();
-				 }					
+					   enableSystemTickOS();
+					 	 schedulerOS();
+				 }				 
 		}
 } 
 
@@ -493,10 +504,14 @@ void initializeEventOS(void)
 				  QBodyOS[i].outIndex =0;
 				  QBodyOS[i].items =0;
 			 
+          PerRxLengthOS[i] = 0;
+			 
 			    QTxRxOS[i].completeTx = 1;
 			 		QTxRxOS[i].completeRx = 1;
 			    QTxRxOS[i].itemsRx = 0;
-			    QTxRxOS[i].power = 0;
+			    QTxRxOS[i].power = 0;	 
+			    QTxRxOS[i].dataTx = NULL;	 
+			    QTxRxOS[i].startTx = 1;
 			  ENABLE_INTERRUPT;
 		 } 	
 
@@ -606,20 +621,20 @@ char checkStartErrorOS(int arraySize, int startPriority, void (*lowPowerTimer)(v
 			    errorCode = 4;  
 			}
 
-			if ( (QSIZE>0) && (QLENGTH < 1) )
+			if ( (QSIZE>0) && ( (QLENGTH < 1) || ((int)BULKBYTES % 2) )  )
 			{
 			    errorCode = 5;  
 			}
-			
+
 	    return errorCode;
 }
 
 
 char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*lowPowerTimer)(void) )
 { 
-	  char         errorCode;
-	  unsigned int topStackPointer;
-	  unsigned int OSclock = TICK;
+	  char          errorCode;
+	  unsigned int  topStackPointer;
+	  unsigned int  OSclock = TICK;
 	
 		errorCode = checkStartErrorOS(arraySize, startPriority, lowPowerTimer);
 
@@ -629,7 +644,7 @@ char startOS(void (*taskName[])(void), int arraySize, int startPriority, void (*
 		}
 		
 		lowPowerTimerOS = lowPowerTimer;
-    initializeSysTickOS();
+    enableSystemTickOS();
     setHandlerPriorityOS();		
 		initializeEventOS();
 		initializeTaskOS(taskName);
@@ -657,7 +672,7 @@ void resumeTaskOS(int priority)
 }
 
 
-void pauseTaskOS(int tick)
+void pauseTaskOS(unsigned long tick)
 {
 	 DISABLE_INTERRUPT;	
 	   WaitTickOS[CurrentPriorityOS] = tick;
@@ -797,19 +812,19 @@ void SysTick_Handler(void)
 	
      for( i=0; i< TASKSIZE; i++ )   // i is task's priority value
      {
-         if ( WaitTickOS[i] >= 1 )		// if WaitTickOS[] < 0 (infinite waiting), only acquiring event can let the infinite waiting task be ready.   
+         if ( (WaitTickOS[i] > 0) && (WaitTickOS[i] < INFINITE) )	  
          {
 					 DISABLE_INTERRUPT;
 				    WaitTickOS[i]--;
 					 ENABLE_INTERRUPT;
-         } 
-
-				 if ( WaitTickOS[i] == 0  )	
+         }
+				 
+			 	 if ( WaitTickOS[i] == 0  )	
          {
 					   setTableOS(ReadyTableOS, i);
 					   schedule = 1;
-         } 						 
-     } // for
+         } 				 						 
+     }
 				
      resumeUntil = checkDelayUntilOS();
 
@@ -1135,11 +1150,34 @@ int localVariableRegionOS(unsigned int *context, int maxLength)
 }
 
 
+
+void minimumPaddingOS(int taskSize, void (*display)(unsigned int), int times)   
+{
+		int  i;
+	  int  bytes;
+    int  *pint;
+	  static int  count = 0;
+	
+	  if ( count < times )
+		{
+			 pint = minimumStackOS(&bytes);			
+       display( bytes );
+		 
+		   for(i=0; i<taskSize; i++)
+			 {
+				   display( *(pint + i) );		 // task padding
+			 }
+			 
+       count++;			 
+		 }			 
+}
+
+
 /*****************************************************************/
 /*                           Delay                               */
 /*****************************************************************/
 
-void delayTickOS(int tick)
+void delayTickOS(unsigned long tick)
 {
 		if ( interruptNumberOS() == 0 )
 		{	
@@ -1151,8 +1189,8 @@ void delayTickOS(int tick)
 
 void delayTimeOS( int hour, int minute, int second, int  mS)
 {
-    int tick;
-	  int remainder;	
+    unsigned long  tick;
+	  int            remainder;	
 
 		if ( interruptNumberOS() == 0 )
 		{	
@@ -1205,7 +1243,7 @@ void delayUntilEqualOS(int *a, int *b)
        	      k++;
 		      }
 	     	
-          pauseTaskOS(INFINITE);		 
+          pauseTaskOS( INFINITE );		 
        }
 
        schedulerOS();	
@@ -1238,7 +1276,7 @@ void delayUntilTrueOS(int *a)
        	       k++;
 		       }
 	     	
-           pauseTaskOS(INFINITE);		 
+           pauseTaskOS( INFINITE );		 
        }
 
        schedulerOS();	
@@ -1303,7 +1341,7 @@ void postSemOS(int number)
 							 {
 				           priority =  EventNumberTaskOS[i].priority;	
 
-								   if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
+								   if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] <= INFINITE) )
 							     {  
 								       array = EventNumberTaskOS[i].numberArray;
  								       previousValue = -999;
@@ -1347,7 +1385,7 @@ void postSemOS(int number)
 }
 
 
-int pendSemOS(int *array, int timeout)
+int pendSemOS(int *array, unsigned long timeout)
 {
     int  index;
 	  int  readyNumber= -1;
@@ -1418,7 +1456,7 @@ void postMailOS(int number, void *messageAddr)
 							 {
 				           priority =  EventNumberTaskOS[i].priority;	
 
-						       if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
+						       if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] <= INFINITE) )
 							     {
 								       array = EventNumberTaskOS[i].numberArray;
  								       previousValue = -999;
@@ -1482,7 +1520,7 @@ void* readMailOS(int number, char clear)
 }
 
 
-void* pendMailOS(int *array, int *readyNumberAddr, char clear, int timeout)
+void* pendMailOS(int *array, int *readyNumberAddr, char clear, unsigned long timeout)
 {
     int   index;
 	  int   readyNo;
@@ -1529,6 +1567,24 @@ void* pendMailOS(int *array, int *readyNumberAddr, char clear, int timeout)
 }
 
 
+        // No need of PENDSIZE
+void selfPriorityMail_TxOS(int number, void *messageAddr)
+{
+	  if (  (number >= 0) && (number < MAILSIZE) )
+		{	
+			 DISABLE_INTERRUPT;
+			   ReceiveMessageOS[number] = messageAddr;
+       ENABLE_INTERRUPT;				
+				 clearTableOS(PriorityOwnEventOS, CurrentPriorityOS);
+	  } 	
+}
+
+
+void* selfPriorityMail_RxOS(int number)
+{
+	  return  readMailOS(number, CLEARMAIL);
+}
+
 
 /*****************************************************************/
 /*                           Mutex                               */
@@ -1566,7 +1622,7 @@ void postMutexOS(void)
 							     {
 				               priority =  EventNumberTaskOS[i].priority;	
 
-						           if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
+						           if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] <= INFINITE) )
 							         {
 							             array = EventNumberTaskOS[i].numberArray;   
  
@@ -1603,7 +1659,7 @@ void postMutexOS(void)
 }
 
 
-int pendMutexOS(int *array, int timeout)
+int pendMutexOS(int *array, unsigned long timeout)
 {
      int  index;
 	   int  number;
@@ -1709,7 +1765,7 @@ void postFlagOS(int number, unsigned int modifyPublicFlag, char setOrClear )
 							 {	 
 								  priority = EventNumberTaskOS[i].priority;
 
-								  if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
+								  if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] <= INFINITE) )
 							    {
 								     array = EventNumberTaskOS[i].numberArray;
  								     previousValue = -999;
@@ -1780,7 +1836,7 @@ void postFlagOS(int number, unsigned int modifyPublicFlag, char setOrClear )
 }
 
 
-int pendFlagOS(int *array, unsigned int privateFlag, char allOrAny, int timeout)
+int pendFlagOS(int *array, unsigned int privateFlag, char allOrAny, unsigned long timeout)
 {
 	   int  index;
 	   int  readyNumber= -1;
@@ -1897,8 +1953,7 @@ int findFreeMemoryOS(int desiredBulkLength)
 							     margeNo = i;
 								   break;
 			         }
-//setBit = checkSetBitOS(FreeBulkNoOS, i+length1);
-			//				 setBit = checkSetBitOS(FreeBulkNoOS, (int)(GLOBALBULKLENGTH-1));
+
 							 if( (length1 == desiredBulkLength) && (i == GLOBALBULKLENGTH-desiredBulkLength) && checkSetBitOS(FreeBulkNoOS, (int)(GLOBALBULKLENGTH-1)) )
 			         { 
 							     margeNo = i;
@@ -2212,7 +2267,7 @@ int postQOS(int number, void *messageAddr)
 	  int remainItems = 0;
 
 		if ( (number >= 0) && (number < QSIZE) && ( QBodyOS[number].q != 0x0) && (QBodyOS[number].items < QLENGTH) )
-		{		
+		{	
 				 clearTableOS(PriorityOwnEventOS, CurrentPriorityOS);	
 	     DISABLE_INTERRUPT;
 		   	 inIndex = QBodyOS[number].inIndex++;		
@@ -2235,7 +2290,7 @@ int postQOS(int number, void *messageAddr)
 							 {
 				          priority = EventNumberTaskOS[i].priority;	
 								 
-						      if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] >= (int)INFINITE) )
+						      if ( (priority != CurrentPriorityOS) && (WaitTickOS[priority] <= INFINITE) )
 					        {
 							       array = EventNumberTaskOS[i].numberArray;
 	 							     previousValue = -999;
@@ -2282,17 +2337,14 @@ void* readQOS(int number, int* items)
 {
 	  int   i;
 	  int   outIndex;
-	  char  setBit;
 	  void* retrieveAddress = 0x0;
 	
 	  if ( items != NULL )
 		{
 	      *items = 0;
 		}
-		
-		setBit = checkSetBitOS(PriorityOwnEventOS, CurrentPriorityOS);
-	
-    if((setBit > 0) && (number >= 0) && (number < QSIZE) && (QBodyOS[number].items > 0))
+
+    if((number >= 0) && (number < QSIZE) && (QBodyOS[number].items > 0))
 		{ 
 		     for(i=0; i<QBodyOS[number].items; i++)
 		     {
@@ -2306,7 +2358,7 @@ void* readQOS(int number, int* items)
 			        }
 						ENABLE_INTERRUPT;						
 		     } // for	
-				
+			
 				 retrieveAddress = qRetrieveOS[number];
 				 if ( items != NULL )
 		     {
@@ -2316,10 +2368,11 @@ void* readQOS(int number, int* items)
 				 QBodyOS[number].items = 0;   // clear message
 				ENABLE_INTERRUPT;		
 					
-		} // if(  (setBit > 0)	&& (number >= 0)  )
+		} // if(  (number >= 0)  )
 		 
 	  return retrieveAddress;
 }
+
 
 
 int findItemNumberOS(int *array)
@@ -2356,7 +2409,7 @@ int findItemNumberOS(int *array)
 }
 
 
-void* pendQOS(int *array, int* readyNo, int* items, int timeout)
+void* pendQOS(int *array, int* readyNo, int* items, unsigned long timeout)
 {
    int   index;		
    int   number = -1;
@@ -2390,8 +2443,7 @@ void* pendQOS(int *array, int* readyNo, int* items, int timeout)
 							
 					if( number >= 0 )  // find items
 					{ 
-					  DISABLE_INTERRUPT;
-		//				  SleepPendQOS[number] = pend;         
+					  DISABLE_INTERRUPT;    
 							retrieveAddress = readQOS(number, items);         									
 						ENABLE_INTERRUPT;	
 					} // if( number >= 0 )
@@ -2432,13 +2484,68 @@ int qReadyNumberOS(void* retrieveAddress)
 }
 
 
-void qTxRealtimeOS(int number, void *messageAddr)
+
+int queryRemainItemsOS(int number)
+{
+   return QLENGTH - QBodyOS[number].items;
+}
+
+
+
+
+       // self priority communication, no need of PENDSIZE
+int selfPriorityQ_TxOS(int number, void *messageAddr)
+{
+	  int inIndex;
+	  int remainItems = 0;
+
+		if ( (number >= 0) && (number < QSIZE) && ( QBodyOS[number].q != 0x0) && (QBodyOS[number].items < QLENGTH) )
+		{		
+				 clearTableOS(PriorityOwnEventOS, CurrentPriorityOS);	
+	     DISABLE_INTERRUPT;
+		   	 inIndex = QBodyOS[number].inIndex++;		
+			   QBodyOS[number].q[inIndex] = messageAddr; // user must handle the data type.	
+			   QBodyOS[number].items++;
+
+				 if(  QBodyOS[number].inIndex >= QLENGTH )
+			   {
+				      QBodyOS[number].inIndex = 0;				
+			   }
+		   ENABLE_INTERRUPT;
+				 
+				 remainItems = QLENGTH - QBodyOS[number].items;
+	   } 		 
+
+		 return remainItems;
+}
+
+
+
+void* selfPriorityQ_RxOS(int number, int* items)
+{
+	 void* retrieveAddress = 0x0;
+
+	 if (  (number >= 0) && (number < QSIZE) )
+	 {	
+			DISABLE_INTERRUPT;    
+				retrieveAddress = readQOS(number, items);         									
+			ENABLE_INTERRUPT;		
+	 } 
+		 
+   return retrieveAddress; 	
+}
+
+
+
+
+       // real time communication
+void realtimeTxOS(int number, void *messageAddr)
 {
 	  postQOS(number, messageAddr);
 }
 
 
-void* qRxRealtimePendOS(int number)
+void* realtimeRxPendOS(int number)
 {
 	  pendQOS(&number, NULL, NULL, INFINITE);;
 	
@@ -2447,31 +2554,42 @@ void* qRxRealtimePendOS(int number)
 
 
 
-int queryRemainItemsOS(int number)
-{
-   return QLENGTH - QBodyOS[number].items;
-}
+       //  nonblocking communication (value)
 
-       // value communication
-
-void qTxValueOS(int qNo, void* pData, int length, char power)
+char nonblockTxOS(int qNo, void* pData, int length, char power)
 {
-	DISABLE_INTERRUPT;
-	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeTx) && (length > 0) )
-	  {
-		   QTxRxOS[qNo].itemsTx = 0;
-	     QTxRxOS[qNo].dataTx = pData;
-	     QTxRxOS[qNo].length = length;
-	     QTxRxOS[qNo].power = power;
-		   QBodyOS[qNo].inIndex = 0;
+	  char  startTx;
+	
+	  startTx = QTxRxOS[qNo].startTx;
+	
+	  if ( startTx )
+		{ 
+	    DISABLE_INTERRUPT;
+	
+	      QTxRxOS[qNo].startTx = 0;
 			
-			 QTxRxOS[qNo].completeTx = 0;	 
+				if ( QTxRxOS[qNo].itemsRx == QTxRxOS[qNo].length )
+		    {
+	          QTxRxOS[qNo].length = 0;			
+				}
+			
+			  if ( length == 0 )
+				{
+					  QTxRxOS[qNo].startTx = 1;
+				}
+	      else if( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeTx) )
+	      { 
+		        QTxRxOS[qNo].itemsTx = 0;
+	          QTxRxOS[qNo].dataTx = pData;
+	          QTxRxOS[qNo].length = length;  
+	          QTxRxOS[qNo].power = power;
+		        QBodyOS[qNo].inIndex = 0;
+			      QTxRxOS[qNo].completeTx = 0;		 
+	      }
+	    ENABLE_INTERRUPT;
 	  }
-		else if ( length == 0 )
-		{
-			  QTxRxOS[qNo].length = 0;
-		}
-	ENABLE_INTERRUPT;
+		
+		return  startTx;
 }
 
 
@@ -2522,36 +2640,49 @@ void qTxOS(void)
 		   if ( !QTxRxOS[i].completeTx )
 		   { 
 				  remainTxItems = QTxRxOS[i].length - QTxRxOS[i].itemsTx;
-
+				 
           if ( queryRemainItemsOS(i) && remainTxItems )
-	        {		 
+	        {			
 		         intData = QTxRxOS[i].power ? (int)(( *((float*)QTxRxOS[i].dataTx + QTxRxOS[i].itemsTx) ) * (float)multiplier ) : *((int*)(QTxRxOS[i].dataTx) + QTxRxOS[i].itemsTx);
-			       remainQItems = writeQOS(i, (void*)intData, &remainTxItems);
-						 
+			       remainQItems = writeQOS(i, (void*)intData, &remainTxItems);							 
+
 	           while ( remainQItems && remainTxItems )
 		         {
                 intData = QTxRxOS[i].power ? (int)(( *((float*)QTxRxOS[i].dataTx + QTxRxOS[i].itemsTx) ) * (float)multiplier ) : *((int*)(QTxRxOS[i].dataTx) + QTxRxOS[i].itemsTx);			  
-				        remainQItems = writeQOS(i, (void*)intData, &remainTxItems);
+				        remainQItems = writeQOS(i, (void*)intData, &remainTxItems);								
 	           }
-          } 
+          }
 		   } 
-	 } 
+	 } // for
 }
 
-	 
-void qRxValueOS(int qNo, void* pData)
+
+int nonblockRxOS(int qNo, void* pData)
 {
+	  int  perRxLength;
+	
 	DISABLE_INTERRUPT;	
-	  if ( (qNo < QSIZE) && (qNo >= 0) && (QTxRxOS[qNo].completeRx) )
+	  if ( (qNo < QSIZE) && (qNo >= 0) )
 	  { 
-		 	 QTxRxOS[qNo].itemsRx = 0;
-			 QTxRxOS[qNo].dataRx = pData;	
-		   QBodyOS[qNo].outIndex = 0;
-			
-			 QTxRxOS[qNo].completeRx = 0;	
-		   FlagTxRxOS = 1;
+		   if ( QTxRxOS[qNo].completeRx )
+	     {
+		 	    QTxRxOS[qNo].itemsRx = 0;
+			    QTxRxOS[qNo].dataRx = pData;	
+		      QBodyOS[qNo].outIndex = 0;
+			    QTxRxOS[qNo].completeRx = 0;	
+			 }
 	  }
+		
+		perRxLength = PerRxLengthOS[qNo];
+	
+	  if ( PerRxLengthOS[qNo] > 0 )
+		{
+			  QTxRxOS[qNo].startTx = 1;
+	      PerRxLengthOS[qNo] = 0;
+		}
 	ENABLE_INTERRUPT;	
+		
+		return  perRxLength;
 }
 				 
 				 
@@ -2565,14 +2696,14 @@ void qRxOS(void)
 
 	 for (i=0; i<QSIZE; i++)
 	 {
-	     multiplier = 1;
-	     for (m=0; m < QTxRxOS[i].power; m++)
-	     {
-		      multiplier *= 10;		
-	     }
+	    multiplier = 1;
+	    for (m=0; m < QTxRxOS[i].power; m++)
+	    {
+		     multiplier *= 10;		
+	    }
 	 		
-			 if ( !QTxRxOS[i].completeRx )
-		   {   
+			if ( !QTxRxOS[i].completeRx )
+		  {   
 	        for(k=0; k < QBodyOS[i].items; k++)
 	        {
 			      DISABLE_INTERRUPT;	
@@ -2593,37 +2724,47 @@ void qRxOS(void)
              {
                 QBodyOS[i].outIndex = 0;
              }
-
-				     if ( QTxRxOS[i].itemsRx ==  QTxRxOS[i].length )
-		         {
-		            QTxRxOS[i].completeRx = 1;
-							  QTxRxOS[i].completeTx = 1;
-		         }
 		        ENABLE_INTERRUPT;						
-	        } 	// for
+	       } 	// for
 					
-				 DISABLE_INTERRUPT;	
-					QBodyOS[i].items = 0;  
-				 ENABLE_INTERRUPT;	
-		   }
+				DISABLE_INTERRUPT;	
+				 
+				 if ( QTxRxOS[i].itemsRx == QTxRxOS[i].length )
+		     {
+		         QTxRxOS[i].completeRx = 1;
+					   QTxRxOS[i].completeTx = 1;
+		     }
+ 
+				 PerRxLengthOS[i] = QBodyOS[i].items;
+				 QBodyOS[i].items = 0; 
+				 
+				ENABLE_INTERRUPT;	
+		  }
 	 } // for
 }
 
 
-int packetLengthOS(int qNo)
-{
-	  return  QTxRxOS[qNo].length;
-}
-
-
 void nonBlockingValueTransferOS(void)
-{
-		 if ( FlagTxRxOS )
-		 {
-	       qTxOS();
-	       qRxOS();
-		 }
+{ 
+	  int   i;
+	  char  flag = 0;
+	
+	  for (i=0; i<QSIZE; i++)
+	  {		 
+			  if ( QTxRxOS[i].dataTx != NULL )
+			  {
+					  flag = 1;
+				    break;
+			  }
+		}
+
+	  if ( flag )
+	  {
+	      qTxOS();
+	      qRxOS();
+	  }
 }
+
 
 /*****************************************************************/
 /*                        Task Load                              */
@@ -2684,8 +2825,8 @@ int idleTaskLoadOS(void)
 
 void minDelayTickOS(void)
 {
-	  int  i;
-	  unsigned int  min = 0xffffffff;
+	  int            i;
+	  unsigned long  min = 0x7fffffff;
 
     for (i=0; i<TASKSIZE; i++)
 		{
@@ -2714,7 +2855,7 @@ void minDelayTickOS(void)
 }
 
 
-unsigned int matchRegisterOS(void)
+unsigned long matchRegisterOS(void)
 {
 	  return  MinDelayTickOS;
 }
